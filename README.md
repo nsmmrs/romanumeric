@@ -13,12 +13,14 @@ A library and CLI for the decoding and encoding of Roman numerals
 
 ### Using Opam
 
+<!-- $MDX skip -->
 ```bash
 opam install romanum
 ```
 
 ### Using npm
 
+<!-- $MDX skip -->
 ```bash
 yarn global add @noahsummers/romanum
 # Or
@@ -27,15 +29,17 @@ npm -g install @noahsummers/romanum
 
 ### Using a script
 
+<!-- $MDX skip -->
 ```bash
 curl -fsSL https://github.com/noahsummers/romanum/raw/master/script/install.sh | bash
 ```
 
 ## Usage
 
-### `romanum hello NAME`
-
-Greets the name given in argument.
+```bash
+$ romanum hello Caesar
+Hello Caesar!
+```
 
 ## Contributing
 

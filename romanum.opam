@@ -11,15 +11,16 @@ homepage: "https://github.com/noahsummers/romanum"
 bug-reports: "https://github.com/noahsummers/romanum/issues"
 depends: [
   "ocaml" {>= "4.08.0"}
-  "dune" {>= "2.0"}
+  "dune" {>= "2.8" & >= "2.0"}
   "alcotest" {with-test}
+  "mdx" {with-test}
   "odoc" {with-doc}
   "cmdliner"
   "logs"
   "fmt"
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"

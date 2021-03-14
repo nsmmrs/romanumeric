@@ -1,9 +1,11 @@
-(lang dune 2.0)
+(lang dune 2.8)
 (name romanum)
 (source (github noahsummers/romanum))
 (license MIT)
 (authors "Noah Summers")
 (maintainers "Noah Summers")
+
+(using mdx 0.1)
 
 (generate_opam_files true)
 
@@ -17,6 +19,7 @@ A library and CLI for the decoding and encoding of Roman numerals
   (ocaml (>= 4.08.0))
   (dune (>= 2.0))
   (alcotest :with-test)
+  (mdx :with-test)
   (odoc :with-doc)
   cmdliner
   logs
