@@ -1,5 +1,8 @@
 (library
  (name romanum)
- (public_name romanum))
+ (public_name romanum)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test)))
 
 (include_subdirs unqualified)

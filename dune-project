@@ -20,6 +20,7 @@ A library and CLI for the decoding and encoding of Roman numerals
   (dune (>= 2.0))
   (alcotest :with-test)
   (mdx :with-test)
+  (ppx_inline_test :with-test)
   (odoc :with-doc)
   cmdliner
   logs
