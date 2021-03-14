@@ -5,4 +5,12 @@
  (preprocess
   (pps ppx_inline_test)))
 
+(rule
+ (action
+  (write-file open_lib "#require \"romanum\";;\nopen Romanum;;\n")))
+
+(mdx
+ (files *.mli)
+ (preludes open_lib))
+
 (include_subdirs unqualified)
