@@ -2,7 +2,7 @@ open Romanum
 
 let run ~name =
   let greeting = Utils.greet name in
-  Logs.app (fun m -> m "%s" greeting);
+  Logs.app (fun m -> m "%s" greeting) ;
   Ok ()
 
 (* Command line interface *)
@@ -19,8 +19,7 @@ let envs = Common.envs
 
 let man =
   [ `S Manpage.s_description
-  ; `P "$(tname) prints a hello world message on the standard output."
-  ]
+  ; `P "$(tname) prints a hello world message on the standard output." ]
 
 let info = Term.info "hello" ~doc ~sdocs ~exits ~envs ~man
 
@@ -34,4 +33,4 @@ let term =
   in
   run ~name |> Common.handle_errors
 
-let cmd = term, info
+let cmd = (term, info)

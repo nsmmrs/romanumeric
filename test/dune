@@ -3,4 +3,5 @@
 (tests
  (names utils)
  (libraries alcotest romanum)
- (flags (:standard -open Alcotest -open Romanum)))
+ (flags
+  (:standard -open Alcotest -open Romanum)))

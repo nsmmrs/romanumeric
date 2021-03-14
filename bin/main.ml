@@ -1,6 +1,6 @@
 open Cmdliner
 
-let cmds = [ Cmd_hello.cmd ]
+let cmds = [Cmd_hello.cmd]
 
 (* Command line interface *)
 
@@ -23,8 +23,7 @@ let man =
   ; `S Manpage.s_bugs
   ; `P "File bug reports at $(i,%%PKG_ISSUES%%)"
   ; `S Manpage.s_authors
-  ; `P "Noah Summers, $(i,https://github.com/noahsummers)"
-  ]
+  ; `P "Noah Summers, $(i,https://github.com/noahsummers)" ]
 
 let default_cmd =
   let term =
@@ -33,7 +32,9 @@ let default_cmd =
     @@ let+ _ = Common.term in
        `Help (`Pager, None)
   in
-  let info = Term.info "romanum" ~version:"%%VERSION%%" ~doc ~sdocs ~exits ~man ~envs in
-  term, info
+  let info =
+    Term.info "romanum" ~version:"%%VERSION%%" ~doc ~sdocs ~exits ~man ~envs
+  in
+  (term, info)
 
 let () = Term.(exit_status @@ eval_choice default_cmd cmds)
