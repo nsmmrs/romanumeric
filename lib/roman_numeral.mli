@@ -3,6 +3,8 @@
 val decode : string -> int
 (** Converts from Roman numeral to decimal integer.
 
-    {4 Examples}
-
-    {[ print_endline @@ decode "IV" ]} *)
+    {[
+      # Roman_numeral.decode "IV"
+      - : int = 4
+    ]}
+*)
