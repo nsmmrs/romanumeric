@@ -3,13 +3,12 @@
  (libraries alcotest romanum)
  (modules
   (:standard \ test_runner))
- (flags (:standard -linkall -g -open StdLabels)))
+ (flags (:standard -linkall -g)))
 
 (executable
  (name test_runner)
  (libraries alcotest romanum_test)
- (modules test_runner)
- (flags (:standard -open StdLabels)))
+ (modules test_runner))
 
 (rule
  (alias runtest)
