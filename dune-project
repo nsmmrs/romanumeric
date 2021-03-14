@@ -11,10 +11,7 @@
 
 (package
  (name romanum)
- (synopsis "A library and CLI for the decoding and encoding of Roman numerals")
- (description "\
-A library and CLI for the decoding and encoding of Roman numerals
-")
+ (synopsis "A library and CLI for decoding and encoding Roman numerals")
  (depends
   (ocaml (>= 4.08.0))
   (dune (>= 2.0))
