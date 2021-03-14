@@ -1,0 +1,19 @@
+(library
+ (name romanum_test)
+ (libraries alcotest romanum)
+ (modules
+  (:standard \ test_runner))
+ (flags (:standard -linkall -g -open StdLabels)))
+
+(executable
+ (name test_runner)
+ (libraries alcotest romanum_test)
+ (modules test_runner)
+ (flags (:standard -open StdLabels)))
+
+(rule
+ (alias runtest)
+ (action
+  (run ./test_runner.exe -q --color=always)))
+
+(include_subdirs unqualified)

@@ -1,0 +1,6 @@
+(library
+ (name romanum)
+ (public_name romanum)
+ (flags (:standard -open StdLabels)))
+
+(include_subdirs unqualified)
