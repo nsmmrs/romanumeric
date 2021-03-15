@@ -12,6 +12,7 @@
 
 (mdx
  (files *.mli)
- (preludes open_lib))
+ (preludes open_lib)
+ (packages romanum))
 
 (include_subdirs unqualified)
