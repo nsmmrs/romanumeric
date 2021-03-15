@@ -1,6 +1,7 @@
 (library
  (name romanum)
  (public_name romanum)
+ (libraries containers)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test)))
