@@ -50,4 +50,29 @@ let%test _ = Glyph.List.equal Glyph.[M; V; C] (Glyph.List.from_string " MVC ")
 
 let%test _ = List.is_empty (Glyph.List.from_string "MAC")
 
-let decode _ = 0
+let parts_from_glyphs glyphs =
+  let rec acc_parts parts part glyphs =
+    let current, count = part in
+    match glyphs with
+    | next :: rest when Glyph.equal current next ->
+        acc_parts parts (current, count + 1) rest
+    | next :: rest -> acc_parts (part :: parts) (next, 1) rest
+    | [] -> part :: parts |> List.rev
+  in
+  match glyphs with [] -> [] | g :: gs -> acc_parts [] (g, 1) gs
+
+let sum_of_parts parts =
+  let rec add_parts parts acc =
+    match parts with
+    | (cg, mult) :: rest -> (
+        let part_val = Glyph.value cg * mult in
+        match rest with
+        | (ng, _) :: _ when Glyph.(value cg < value ng) ->
+            add_parts rest (acc - part_val)
+        | _ -> add_parts rest (acc + part_val) )
+    | [] -> acc
+  in
+  add_parts parts 0
+
+let decode string =
+  string |> Glyph.List.from_string |> parts_from_glyphs |> sum_of_parts
