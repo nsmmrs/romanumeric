@@ -27,8 +27,7 @@ let term =
 let error_to_code = function `Missing_env_var _ -> 4
 
 let handle_errors = function
-  | Ok () ->
-      if Logs.err_count () > 0 then 3 else 0
+  | Ok () -> if Logs.err_count () > 0 then 3 else 0
   | Error err ->
       Logs.err (fun m -> m "%s" (Romanum.Romanum_error.to_string err)) ;
       error_to_code err

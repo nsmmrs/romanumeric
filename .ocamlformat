@@ -1,2 +1,3 @@
 version = 0.17.0
 profile = ocamlformat
+break-cases = fit
