@@ -12,7 +12,7 @@ module Glyph = struct
     | D -> 500
     | M -> 1_000
 
-  let from_char = function
+  let of_char = function
     | 'I' -> Some I
     | 'V' -> Some V
     | 'X' -> Some X
@@ -24,55 +24,36 @@ module Glyph = struct
 
   let equal (g1 : t) (g2 : t) = Equal.physical g1 g2
 
-  let%test _ = equal I I
-
-  let%test _ = not @@ equal V I
-
-  module List = struct
-    let rec from_chars = function
-      | char :: chars -> (
-        match from_char char with
-        | Some glyph -> glyph :: from_chars chars
-        | None -> [] )
-      | [] -> []
-
-    let from_string string =
-      let chars = String.(trim string |> to_list) in
-      let glyphs = from_chars chars in
-      let open List in
-      if length chars = length glyphs then glyphs else []
-
-    let equal = List.equal equal
-  end
+  let list s = String.(trim s |> to_list) |> List.map of_char |> List.all_some
 end
 
-let%test _ = Glyph.List.equal Glyph.[M; V; C] (Glyph.List.from_string " MVC ")
+module Part = struct
+  let value (glyph, repetition) = Glyph.value glyph * repetition
 
-let%test _ = List.is_empty (Glyph.List.from_string "MAC")
+  let plus_or_minus ((glyph, _) as part) ~given:(next_glyph, _) =
+    let v = value part in
+    if Glyph.(value glyph < value next_glyph) then -v else v
 
-let parts_from_glyphs glyphs =
-  let rec acc_parts parts part glyphs =
-    let current, count = part in
-    match glyphs with
-    | next :: rest when Glyph.equal current next ->
-        acc_parts parts (current, count + 1) rest
-    | next :: rest -> acc_parts (part :: parts) (next, 1) rest
-    | [] -> part :: parts |> List.rev
-  in
-  match glyphs with [] -> [] | g :: gs -> acc_parts [] (g, 1) gs
+  let list glyphs =
+    let open List in
+    group_succ glyphs ~eq:Glyph.equal
+    |> map (function
+         | glyph :: _ as group -> Some (glyph, length group)
+         | _ -> None )
+    |> keep_some
 
-let sum_of_parts parts =
-  let rec add_parts parts acc =
+  let rec sum ?(acc = 0) parts =
     match parts with
-    | (cg, mult) :: rest -> (
-        let part_val = Glyph.value cg * mult in
-        match rest with
-        | (ng, _) :: _ when Glyph.(value cg < value ng) ->
-            add_parts rest (acc - part_val)
-        | _ -> add_parts rest (acc + part_val) )
     | [] -> acc
-  in
-  add_parts parts 0
+    | first :: remaining -> (
+      match remaining with
+      | next :: _ ->
+          let addend = plus_or_minus first ~given:next in
+          sum remaining ~acc:(acc + addend)
+      | empty -> sum empty ~acc:(acc + value first) )
+end
 
 let decode string =
-  string |> Glyph.List.from_string |> parts_from_glyphs |> sum_of_parts
+  match Glyph.list string with
+  | None -> 0
+  | Some glyphs -> Part.(list glyphs |> sum)
