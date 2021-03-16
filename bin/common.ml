@@ -24,7 +24,8 @@ let term =
   Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ()) ;
   0
 
-let error_to_code = function `Missing_env_var _ -> 4
+let error_to_code = function
+  | `Missing_env_var _ -> 4
 
 let handle_errors = function
   | Ok () -> if Logs.err_count () > 0 then 3 else 0

@@ -1,5 +1,9 @@
 let home =
-  let env_var = match Sys.os_type with "Unix" -> "HOME" | _ -> "APPDATA" in
+  let env_var =
+    match Sys.os_type with
+    | "Unix" -> "HOME"
+    | _ -> "APPDATA"
+  in
   Sys.getenv_opt env_var
   |> Option.to_result ~none:(Romanum_error.missing_env env_var)
 
