@@ -57,3 +57,5 @@ let decode string =
   match Glyph.list string with
   | None -> 0
   | Some glyphs -> Part.(list glyphs |> sum)
+
+let encode arabic = string_of_int arabic

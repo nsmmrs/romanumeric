@@ -1,7 +1,7 @@
 (include_subdirs unqualified)
 
 (tests
- (names decoding_suite utils_suite)
+ (names decoding_suite encoding_suite utils_suite)
  (libraries alcotest romanum)
  (flags
   (:standard -open Alcotest -open Romanum)))

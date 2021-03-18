@@ -8,3 +8,12 @@ val decode : string -> int
       - : int = 4
     ]}
 *)
+
+val encode : int -> string
+(** Converts from Roman numeral to decimal integer.
+
+    {[
+      # Roman_numeral.encode 4
+      - : string "IV"
+    ]}
+*)

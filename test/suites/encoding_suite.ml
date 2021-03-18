@@ -1,0 +1,80 @@
+(** Encoding test suite for the Roman_numeral module. *)
+
+let can_encode (arabic, roman) =
+  let int = string_of_int arabic in
+  let description = "can encode \"" ^ int ^ "\"" in
+  let assertion = int ^ " -> " ^ roman in
+  ( description
+  , `Quick
+  , fun () ->
+      let actual = Roman_numeral.encode arabic in
+      check string assertion roman actual )
+
+let suite =
+  List.map can_encode
+    [ (1, "I")
+    ; (2, "II")
+    ; (3, "III")
+    ; (4, "IV")
+    ; (5, "V")
+    ; (6, "VI")
+    ; (7, "VII")
+    ; (8, "VIII")
+    ; (9, "IX")
+    ; (10, "X")
+    ; (17, "XVII")
+    ; (18, "XVIII")
+    ; (20, "XX")
+    ; (24, "XXIV")
+    ; (28, "XXVIII")
+    ; (30, "XXX")
+    ; (39, "XXXIX")
+    ; (40, "XL")
+    ; (44, "XLIV")
+    ; (50, "L")
+    ; (60, "LX")
+    ; (70, "LXX")
+    ; (74, "LXXIV")
+    ; (80, "LXXX")
+    ; (90, "XC")
+    ; (97, "XCVII")
+    ; (98, "XCVIII")
+    ; (99, "XCIX")
+    ; (100, "C")
+    ; (160, "CLX")
+    ; (200, "CC")
+    ; (207, "CCVII")
+    ; (246, "CCXLVI")
+    ; (300, "CCC")
+    ; (400, "CD")
+    ; (490, "CDXC")
+    ; (499, "CDXCIX")
+    ; (500, "D")
+    ; (600, "DC")
+    ; (700, "DCC")
+    ; (789, "DCCLXXXIX")
+    ; (800, "DCCC")
+    ; (900, "CM")
+    ; (1000, "M")
+    ; (1009, "MIX")
+    ; (1066, "MLXVI")
+    ; (1776, "MDCCLXXVI")
+    ; (1900, "MCM")
+    ; (1903, "MCMIII")
+    ; (1910, "MCMX")
+    ; (1918, "MCMXVIII")
+    ; (1954, "MCMLIV")
+    ; (2000, "MM")
+    ; (2014, "MMXIV")
+    ; (2021, "MXXI")
+    ; (2421, "MMCDXXI")
+    ; (3000, "MMM")
+    ; (3999, "MMMCMXCIX")
+    ; (4000, "MMMM")
+    ; (5000, "MMMMM")
+    ; (6000, "MMMMMM")
+    ; (7000, "MMMMMMM")
+    ; (8000, "MMMMMMMM")
+    ; (9000, "MMMMMMMMM") ]
+
+let () = Alcotest.run "Roman_numeral" [("encode", suite)]
