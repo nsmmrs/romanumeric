@@ -2,9 +2,8 @@
 
 let can_encode (arabic, roman) =
   let int = string_of_int arabic in
-  let description = "can encode \"" ^ int ^ "\"" in
   let assertion = int ^ " -> " ^ roman in
-  ( description
+  ( assertion
   , `Quick
   , fun () ->
       let actual = Roman_numeral.encode arabic in
@@ -52,6 +51,7 @@ let suite =
     ; (500, "D")
     ; (600, "DC")
     ; (700, "DCC")
+    ; (709, "DCCIX")
     ; (789, "DCCLXXXIX")
     ; (800, "DCCC")
     ; (900, "CM")
@@ -66,7 +66,7 @@ let suite =
     ; (1954, "MCMLIV")
     ; (2000, "MM")
     ; (2014, "MMXIV")
-    ; (2021, "MXXI")
+    ; (2021, "MMXXI")
     ; (2421, "MMCDXXI")
     ; (3000, "MMM")
     ; (3999, "MMMCMXCIX")
@@ -75,6 +75,7 @@ let suite =
     ; (6000, "MMMMMM")
     ; (7000, "MMMMMMM")
     ; (8000, "MMMMMMMM")
-    ; (9000, "MMMMMMMMM") ]
+    ; (9000, "MMMMMMMMM")
+    ; (9999, "MMMMMMMMMCMXCIX") ]
 
-let () = Alcotest.run "Roman_numeral" [("encode", suite)]
+let () = Alcotest.run "Encoding" [("conventional", suite)]
