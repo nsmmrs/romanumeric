@@ -144,8 +144,21 @@ let rec walk glyphs ?(parts = []) num =
       let parts = part :: parts in
       walk remaining ~parts (num - part)
 
+let compress_small_numbers parts =
+  let rec compress ?(acc = []) parts =
+    match parts with
+    | [] -> List.rev acc
+    | first :: (next :: after as remaining) ->
+        let sum = first + next in
+        if sum <= 10 then compress after ~acc:(sum :: acc)
+        else compress remaining ~acc:(first :: acc)
+    | last :: empty -> compress empty ~acc:(last :: acc)
+  in
+  compress parts
+
 let encode ?(glyphs = Glyph.powers_of_ten) ?(max_sub_len = 1) arabic =
   walk glyphs arabic
+  |> compress_small_numbers
   |> List.map (Glyph.encode_part glyphs max_sub_len)
   |> List.concat
   |> List.map Glyph.to_char
