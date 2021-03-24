@@ -35,13 +35,14 @@ module Glyph = struct
     | D -> 500
     | M -> 1_000
 
-  let rec power_of m = function
+  let rec is_power_of m = function
     | n when n = 1 -> true
     | n when n mod m <> 0 -> false
-    | n -> power_of m (n / m)
+    | n -> is_power_of m (n / m)
 
-  let powers_of_ten =
-    all |> List.filter (fun g -> value g |> power_of 10) |> List.rev
+  let power_of n g = value g |> is_power_of n
+
+  let powers_of_ten = List.filter (power_of 10)
 
   let of_char = function
     | 'I' -> Some I
@@ -64,6 +65,29 @@ module Glyph = struct
 
   let equal = Equal.physical
 
+  let descending = List.rev all
+
+  let highest_denominator n = descending |> List.find (fun g -> n mod value g = 0)
+
+  let denomination n = value (highest_denominator n)
+
+  let _denomination ?(f = fun _ -> true) n =
+    let g =
+      descending |> List.filter f |> List.find (fun g -> n mod value g = 0)
+    in
+    value g
+
+  let decimal_denomination n = _denomination ~f:(power_of 10) n
+
+  let same_denomination ints =
+    ints
+    |> List.map decimal_denomination
+    |> List.uniq ~eq:( = )
+    |> function
+    | [1] -> false
+    | [_] -> true
+    | ___ -> false
+
   let closest num =
     let candidates = all |> List.map (fun g -> (g, num - value g)) in
     List.find_opt (fun (_, dist) -> dist = 0) candidates
@@ -84,24 +108,37 @@ module Glyph = struct
 
   let list s = String.(trim s |> to_list) |> List.map of_char |> List.all_some
 
-  let dumb_encode ?(glyphs = all) num =
-    let g =
-      glyphs
-      |> List.filter (fun g -> num mod value g = 0)
-      |> List.fold_left (fun a g -> if value g > value a then g else a) I
-    in
-    let length = Int.abs (num / value g) in
-    List.init length (fun _ -> g)
+  let repeat g n = List.init (Int.abs n) (fun _ -> g)
 
-  let encode_part glyphs max_sub_len int =
-    match closest int with
-    | Exactly g -> [g]
-    | Above (g, dist) -> g :: dumb_encode dist
-    | Between ((low, ldist), (high, hdist)) ->
-        let add = low :: dumb_encode ldist in
-        let sub = List.append (dumb_encode hdist ~glyphs) [high] in
-        let al, sl = List.(length add, length sub) in
-        if al < sl then add else if sl > max_sub_len + 1 then add else sub
+  let flat_fill num =
+    let g = highest_denominator num in
+    repeat g (num / value g)
+
+  let descending_fill ?(init = []) num =
+    match Int.abs num with
+    let rec f acc = function
+      | 0 -> List.(rev acc |> concat)
+      | n ->
+          let g = descending |> List.find (fun g -> n mod value g <> n) in
+          let length, remainder = (n / value g, n mod value g) in
+          let acc = repeat g length :: acc in
+          f acc remainder
+    in
+    f init num
+
+  let encode_additive (g, dist) = descending_fill ~init:[[g]] dist
+
+  let encode_subtractive (g, dist) max_sub_len =
+    let sub = flat_fill dist in
+    if List.length sub > max_sub_len then None else Some (List.append sub [g])
+
+  let rec encode_part max_sub_len num =
+    let additive = encode_additive num in
+    match encode_subtractive ~max_sub_len num with
+    | Some subtractive -> if List.(length additive < length subtractive) then additive else subtractive
+    | None -> additive
+  and encode_additive num =
+  
 end
 
 module Part = struct
@@ -135,31 +172,55 @@ let decode string =
   | None -> 0
   | Some glyphs -> Part.(list glyphs |> sum)
 
-let rec walk glyphs ?(parts = []) num =
-  let greater_than m n = n > m in
-  match glyphs with
-  | [] -> parts |> List.filter (greater_than 0) |> List.rev
-  | g :: remaining ->
-      let part = Glyph.(num / value g * value g) in
-      let parts = part :: parts in
-      walk remaining ~parts (num - part)
+let breakdown num denominations =
+  let rec break ?(acc = []) n = function
+    | [] -> n :: acc
+    | d :: denominations ->
+        let r = n mod d in
+        let acc = r :: acc in
+        break (n - r) denominations ~acc
+  in
+  break num denominations |> List.filter (fun n -> n > 0)
+
+let%test _ = List.equal ( = ) (breakdown 3999 [10; 100; 1000]) [3000; 900; 90; 9]
+
+let%test _ = List.equal ( = ) (breakdown 3999 [5; 50; 1000]) [3000; 950; 45; 4]
+
+let%test _ = List.equal ( = ) (breakdown 18 [10; 100; 1000]) [10; 8]
+
+let walk glyphs num =
+  let denominations = List.map Glyph.value glyphs in
+  breakdown num denominations
+
+let _collapse_same_denominations parts =
+  let rec collapse acc = function
+    | [] -> List.rev acc
+    | first :: (next :: rest as remaining) ->
+        if Glyph.same_denomination [first; next; first + next] then
+          collapse ((first + next) :: acc) rest
+        else collapse (first :: acc) remaining
+    | last :: empty -> collapse (last :: acc) empty
+  in
+  collapse [] parts
 
 let compress_small_numbers parts =
-  let rec compress ?(acc = []) parts =
+  let parts = List.rev parts in
+  let compressed =
     match parts with
-    | [] -> List.rev acc
-    | first :: (next :: after as remaining) ->
-        let sum = first + next in
-        if sum <= 10 then compress after ~acc:(sum :: acc)
-        else compress remaining ~acc:(first :: acc)
-    | last :: empty -> compress empty ~acc:(last :: acc)
+    | 4 :: v :: rest -> (
+      match (Glyph.denomination v, v - 5) with
+      | 5, 0 -> 9 :: rest
+      | 5, _ -> 9 :: (v - 5) :: rest
+      | _ -> parts )
+    | _ -> parts
   in
-  compress parts
+  List.rev compressed
 
-let encode ?(glyphs = Glyph.powers_of_ten) ?(max_sub_len = 1) arabic =
+let encode ?(glyphs = Glyph.(all |> powers_of_ten)) ?(max_sub_len = 1) arabic =
   walk glyphs arabic
   |> compress_small_numbers
-  |> List.map (Glyph.encode_part glyphs max_sub_len)
+  |> _collapse_same_denominations
+  |> List.map (Glyph.encode_part max_sub_len)
   |> List.concat
   |> List.map Glyph.to_char
   |> String.of_list
