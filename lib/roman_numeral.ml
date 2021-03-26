@@ -18,13 +18,13 @@ module Glyph = struct
     | M -> None
 
   let all =
-    let rec accumulate glyphs glyph =
+    let rec build_list glyphs glyph =
       let glyphs = glyph :: glyphs in
       match next glyph with
       | None -> glyphs
-      | Some glyph -> accumulate glyphs glyph
+      | Some glyph -> build_list glyphs glyph
     in
-    accumulate [] I |> List.rev
+    build_list [] I |> List.rev
 
   let value = function
     | I -> 1
@@ -65,6 +65,8 @@ module Glyph = struct
 
   let list s = String.(trim s |> to_list) |> List.map of_char |> List.all_some
 
+  let string l = List.map to_char l |> String.of_list
+
   let equal = Equal.physical
 
   let descending = List.rev all
@@ -99,6 +101,13 @@ module Glyph = struct
 
   let repeat g n = List.init (Int.abs n) (fun _ -> g)
 
+  let repeatable g =
+    all
+    |> List.find_opt (fun other -> value g * 2 = value other)
+    |> function
+    | None -> true
+    | Some _ -> false
+
   let flat_fill num =
     let g = highest_denominator num in
     repeat g (num / value g)
@@ -110,90 +119,68 @@ module Glyph = struct
       | 5, 0 | 0, 0 -> None
       | ones -> Some ones
 
-  let encode_subtractive ~encoded ~msl num =
-    match closest_higher num with
-    | None -> None
-    | Some g ->
-        let () =
-          print_endline ("closest higher is " ^ String.of_list [to_char g])
-        in
-        let rem = value g mod num in
-        let sub = flat_fill rem in
-        if List.length sub > msl then None
-        else Some List.(append (g :: sub) encoded |> rev)
-
-  (*
-
-    let () =
-      print_endline List.(map to_char encoded |> rev |> String.of_list)
-    in
-    let g = closest_lower num in
-    let normal = encode_part ~e:(g :: encoded) ~msl (num - value g) in
-    match remaining_ones num with
-    | None -> normal
-    | Some (lt10, lt5) -> (
-      match (lt10 = lt5, lt5 = 0) with
-      | false, false ->
-          let () = print_endline (string_of_int lt10) in
-          let () = print_endline (string_of_int lt5) in
-          let a = encode_part ~e:encoded ~msl (num - lt10) in
-          let b = encode_part ~e:encoded ~msl (num - lt5) in
-          let ab, rem =
-            if List.(length a < length b) then (a, lt10) else (b, lt5)
-          in
-          if List.(length ab < length normal) then
-            encode_part ~e:(List.rev ab) ~msl rem
-          else normal
-      | _ ->
-          let () = print_endline (string_of_int lt10) in
-          let first_chunk = encode_part ~e:encoded ~msl (num - lt10) in
-          encode_part ~e:(List.rev first_chunk) ~msl lt10 )
-*)
-
-  let rec encode_part ?e:(encoded = []) ?(msl = 1) rem =
-    if rem = 0 then List.rev encoded
-    else
-      match exact_match rem with
-      | Some g -> encode_part ~e:(g :: encoded) ~msl 0
+  let subtractor high_val num msl =
+    let dist = high_val - num in
+    let suitable last next =
+      match last with
+      | Some s -> Some s
       | None -> (
-          let add = encode_additive ~e:encoded ~msl rem in
-          match encode_subtractive ~encoded ~msl rem with
-          | None -> add
-          | Some sub -> if List.(length add < length sub) then add else sub )
-
-  (* and encode_additive ~e:encoded ~msl num =
-     let g = closest_lower num in
-     let rem_ones = num mod 10 in
-     match (rem_ones < num, rem_ones = 0) with
-     | true, false ->
-         let first_chunk = encode_part ~e:encoded ~msl (num - rem_ones) in
-         encode_part ~e:(List.rev first_chunk) ~msl rem_ones
-     | _ -> encode_part ~e:(g :: encoded) ~msl (num - value g) *)
-  and encode_additive ~e:encoded ~msl num =
-    let () =
-      print_endline List.(map to_char encoded |> rev |> String.of_list)
+          let v = value next in
+          if v * 2 = high_val then None
+          else if v >= high_val then None
+          else
+            match high_val - (v * msl) <= num with
+            | false -> None
+            | true -> (
+              match dist mod v = 0 with
+              | true -> (
+                  let reps = dist / v in
+                  match reps = 1 with
+                  | true -> Some ([next], 0)
+                  | false -> (
+                    match repeatable next with
+                    | false -> None
+                    | true -> Some (repeat next reps, 0) ) )
+              | false -> (
+                  let reps = (dist / v) + 1 in
+                  let rem = (v * reps) - dist in
+                  match reps = 1 with
+                  | true -> Some ([next], rem)
+                  | false -> (
+                    match repeatable next with
+                    | false -> None
+                    | true -> Some (repeat next reps, rem) ) ) ) )
     in
+    List.fold_left suitable None all
+
+  let rec encode_part ?e:(encoded : t list list = []) ?(msl = 1) num =
+    if num = 0 then List.concat encoded |> List.rev
+    else
+      let chunk, rem =
+        match encode_subtractive ~msl num with
+        | Some result -> result
+        | None -> encode_additive num
+      in
+      encode_part ~e:(chunk :: encoded) ~msl rem
+
+  and encode_subtractive ~msl num =
+    let () = print_endline @@ string_of_int num in
+    all
+    |> List.find_opt (fun g -> value g >= num)
+    |> function
+    | None -> None
+    | Some g -> (
+        let high_val = value g in
+        let dist = high_val - num in
+        if dist = 0 then Some ([g], 0)
+        else
+          match subtractor high_val num msl with
+          | None -> None
+          | Some (sub, rem) -> Some (g :: sub, rem) )
+
+  and encode_additive num =
     let g = closest_lower num in
-    let normal = encode_part ~e:(g :: encoded) ~msl (num - value g) in
-    match remaining_ones num with
-    | None -> normal
-    | Some (lt10, lt5) -> (
-      match (lt10 = lt5, lt5 = 0) with
-      | false, false ->
-          let () = print_endline (string_of_int lt10) in
-          let () = print_endline (string_of_int lt5) in
-          let a = encode_part ~e:encoded ~msl (num - lt10) in
-          let b = encode_part ~e:encoded ~msl (num - lt5) in
-          let ab, rem =
-            if List.(length a < length b) then (a, lt10) else (b, lt5)
-          in
-          if List.(length ab < length normal) then
-            encode_part ~e:(List.rev ab) ~msl rem
-          else normal
-      | _ ->
-          let () = print_endline (string_of_int lt10) in
-          let first_chunk = encode_part ~e:encoded ~msl (num - lt10) in
-          encode_part ~e:(List.rev first_chunk) ~msl lt10 )
+    ([g], num - value g)
 end
 
 module Part = struct
@@ -229,7 +216,13 @@ let decode string =
 
 let breakdown num denominations =
   let rec break ?(acc = []) n = function
-    | [] -> n :: acc
+    | [] ->
+        let result = n :: acc in
+        let () =
+          List.iter (fun i -> print_int i ; print_string " ") result ;
+          print_endline ""
+        in
+        result
     | d :: denominations ->
         let r = n mod d in
         let acc = r :: acc in
@@ -262,10 +255,13 @@ let compress_small_numbers parts =
   let parts = List.rev parts in
   let compressed =
     match parts with
-    | 4 :: v :: rest -> (
-      match (Glyph.denomination v, v - 5) with
-      | 5, 0 -> 9 :: rest
-      | 5, _ -> 9 :: (v - 5) :: rest
+    | 4 :: v :: rem -> (
+      match Glyph.denomination v with
+      | 5 -> (
+          List.find_opt (fun n -> n = v) [495; 995]
+          |> function
+          | Some _ -> parts
+          | None -> (v + 4) :: rem )
       | _ -> parts )
     | _ -> parts
   in
