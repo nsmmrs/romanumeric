@@ -76,23 +76,6 @@ module Glyph = struct
 
   let denomination n = value (highest_denominator n)
 
-  let _denomination ?(f = fun _ -> true) n =
-    let g =
-      descending |> List.filter f |> List.find (fun g -> n mod value g = 0)
-    in
-    value g
-
-  let decimal_denomination n = _denomination ~f:(power_of 10) n
-
-  let same_denomination ints =
-    ints
-    |> List.map decimal_denomination
-    |> List.uniq ~eq:( = )
-    |> function
-    | [1] -> false
-    | [_] -> true
-    | ___ -> false
-
   let closest_higher num = all |> List.find_opt (fun g -> value g / num = 1)
 
   let exact_match num = all |> List.find_opt (fun g -> value g = num)
@@ -240,20 +223,9 @@ let walk glyphs num =
   let denominations = List.map Glyph.value glyphs in
   breakdown num denominations
 
-let _collapse_same_denominations parts =
-  let rec collapse acc = function
-    | [] -> List.rev acc
-    | first :: (next :: rest as remaining) ->
-        if Glyph.same_denomination [first; next; first + next] then
-          collapse ((first + next) :: acc) rest
-        else collapse (first :: acc) remaining
-    | last :: empty -> collapse (last :: acc) empty
-  in
-  collapse [] parts
-
-let compress_small_numbers parts =
+let collapse_small_numbers parts =
   let parts = List.rev parts in
-  let compressed =
+  let collapsed =
     match parts with
     | 4 :: v :: rem -> (
       match Glyph.denomination v with
@@ -265,12 +237,11 @@ let compress_small_numbers parts =
       | _ -> parts )
     | _ -> parts
   in
-  List.rev compressed
+  List.rev collapsed
 
 let encode ?(glyphs = Glyph.(all |> powers_of_ten)) ?(msl = 1) arabic =
   walk glyphs arabic
-  |> compress_small_numbers
-  |> _collapse_same_denominations
+  |> collapse_small_numbers
   |> List.map (Glyph.encode_part ~msl)
   |> List.concat
   |> List.map Glyph.to_char
