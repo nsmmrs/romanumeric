@@ -3,11 +3,6 @@ open Containers
 module Glyph = struct
   type t = I | V | X | L | C | D | M
 
-  type closest =
-    | Exactly of t
-    | Above of (t * int)
-    | Between of (t * int) * (t * int)
-
   let next = function
     | I -> Some V
     | V -> Some X
@@ -102,51 +97,63 @@ module Glyph = struct
       | 5, 0 | 0, 0 -> None
       | ones -> Some ones
 
-  let subtractor high_val num msl =
+  let valid_subtractors ~msd high_val =
+    let valid acc g =
+      if List.length acc = msd then acc
+      else
+        let v = value g in
+        match v >= high_val with
+        | true -> acc
+        | false -> (
+          match v * 2 = high_val with
+          | true -> acc
+          | false -> g :: acc )
+    in
+    List.fold_left valid [] descending
+
+  let subtractor high_val num msl msd =
     let dist = high_val - num in
     let suitable last next =
       match last with
       | Some s -> Some s
       | None -> (
           let v = value next in
-          if v * 2 = high_val then None
-          else if v >= high_val then None
-          else
-            match high_val - (v * msl) <= num with
-            | false -> None
+          match high_val - (v * msl) <= num with
+          | false -> None
+          | true -> (
+            match dist mod v = 0 with
             | true -> (
-              match dist mod v = 0 with
-              | true -> (
-                  let reps = dist / v in
-                  match reps = 1 with
-                  | true -> Some ([next], 0)
-                  | false -> (
-                    match repeatable next with
-                    | false -> None
-                    | true -> Some (repeat next reps, 0) ) )
-              | false -> (
-                  let reps = (dist / v) + 1 in
-                  let rem = (v * reps) - dist in
-                  match reps = 1 with
-                  | true -> Some ([next], rem)
-                  | false -> (
-                    match repeatable next with
-                    | false -> None
-                    | true -> Some (repeat next reps, rem) ) ) ) )
+                let reps = dist / v in
+                match reps = 1 with
+                | true -> Some ([next], 0)
+                | false -> (
+                  match repeatable next with
+                  | false -> None
+                  | true -> Some (repeat next reps, 0) ) )
+            | false -> (
+                let reps = (dist / v) + 1 in
+                let rem = (v * reps) - dist in
+                match reps = 1 with
+                | true -> Some ([next], rem)
+                | false -> (
+                  match repeatable next with
+                  | false -> None
+                  | true -> Some (repeat next reps, rem) ) ) ) )
     in
-    List.fold_left suitable None all
+    List.fold_left suitable None (valid_subtractors ~msd high_val)
 
-  let rec encode_part ?e:(encoded : t list list = []) ?(msl = 1) num =
+  let rec encode_part ?e:(encoded : t list list = []) ?(msl = 1) ?(msd = 1) num
+      =
     if num = 0 then List.concat encoded |> List.rev
     else
       let chunk, rem =
-        match encode_subtractive ~msl num with
+        match encode_subtractive ~msl ~msd num with
         | Some result -> result
         | None -> encode_additive num
       in
-      encode_part ~e:(chunk :: encoded) ~msl rem
+      encode_part ~e:(chunk :: encoded) ~msl ~msd rem
 
-  and encode_subtractive ~msl num =
+  and encode_subtractive ~msl ~msd num =
     let () = print_endline @@ string_of_int num in
     all
     |> List.find_opt (fun g -> value g >= num)
@@ -157,7 +164,7 @@ module Glyph = struct
         let dist = high_val - num in
         if dist = 0 then Some ([g], 0)
         else
-          match subtractor high_val num msl with
+          match subtractor high_val num msl msd with
           | None -> None
           | Some (sub, rem) -> Some (g :: sub, rem) )
 
@@ -197,52 +204,5 @@ let decode string =
   | None -> 0
   | Some glyphs -> Part.(list glyphs |> sum)
 
-let breakdown num denominations =
-  let rec break ?(acc = []) n = function
-    | [] ->
-        let result = n :: acc in
-        let () =
-          List.iter (fun i -> print_int i ; print_string " ") result ;
-          print_endline ""
-        in
-        result
-    | d :: denominations ->
-        let r = n mod d in
-        let acc = r :: acc in
-        break (n - r) denominations ~acc
-  in
-  break num denominations |> List.filter (fun n -> n > 0)
-
-let%test _ = List.equal ( = ) (breakdown 3999 [10; 100; 1000]) [3000; 900; 90; 9]
-
-let%test _ = List.equal ( = ) (breakdown 3999 [5; 50; 1000]) [3000; 950; 45; 4]
-
-let%test _ = List.equal ( = ) (breakdown 18 [10; 100; 1000]) [10; 8]
-
-let walk glyphs num =
-  let denominations = List.map Glyph.value glyphs in
-  breakdown num denominations
-
-let collapse_small_numbers parts =
-  let parts = List.rev parts in
-  let collapsed =
-    match parts with
-    | 4 :: v :: rem -> (
-      match Glyph.denomination v with
-      | 5 -> (
-          List.find_opt (fun n -> n = v) [495; 995]
-          |> function
-          | Some _ -> parts
-          | None -> (v + 4) :: rem )
-      | _ -> parts )
-    | _ -> parts
-  in
-  List.rev collapsed
-
-let encode ?(glyphs = Glyph.(all |> powers_of_ten)) ?(msl = 1) arabic =
-  walk glyphs arabic
-  |> collapse_small_numbers
-  |> List.map (Glyph.encode_part ~msl)
-  |> List.concat
-  |> List.map Glyph.to_char
-  |> String.of_list
+let encode ?(msd = 1) ?(msl = 1) arabic =
+  Glyph.encode_part arabic ~msd ~msl |> List.map Glyph.to_char |> String.of_list

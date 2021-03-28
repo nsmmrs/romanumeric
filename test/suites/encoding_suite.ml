@@ -1,5 +1,7 @@
 (** Encoding test suite for the Roman_numeral module. *)
 
+open Roman_numeral
+
 let can_encode (arabic, roman) ~f:encode =
   let int = string_of_int arabic in
   let assertion = int ^ " -> " ^ roman in
@@ -28,23 +30,15 @@ let conv, c1, c2, c3, c4 =
   |> fold_left parse_line ([], [], [], [], [])
   |> rev_lists
 
-let conventional_suite = List.map (can_encode ~f:Roman_numeral.encode) conv
+let conventional_suite = List.map (can_encode ~f:encode) conv
 
-let compression_level_1 =
-  let open Roman_numeral in
-  List.map (can_encode ~f:(encode ~glyphs:Glyph.[V; L; D; M])) c1
+let compression_level_1 = List.map (can_encode ~f:(encode ~msd:2)) c1
 
-let compression_level_2 =
-  let open Roman_numeral in
-  List.map (can_encode ~f:(encode ~glyphs:Glyph.[V; M])) c2
+let compression_level_2 = List.map (can_encode ~f:(encode ~msd:3)) c2
 
-let compression_level_3 =
-  let open Roman_numeral in
-  List.map (can_encode ~f:(encode ~glyphs:Glyph.[V; M])) c3
+let compression_level_3 = List.map (can_encode ~f:(encode ~msd:4)) c3
 
-let compression_level_4 =
-  let open Roman_numeral in
-  List.map (can_encode ~f:(encode ~glyphs:Glyph.[I])) c4
+let compression_level_4 = List.map (can_encode ~f:(encode ~msd:5)) c4
 
 let () =
   Alcotest.run "Encoding"
