@@ -3,6 +3,13 @@ open Containers
 module Glyph = struct
   type t = I | V | X | L | C | D | M
 
+  type sub_memo = {t: t; value: int}
+
+  type glyph_memo =
+    {t: t; value: int; repeatable: bool; subtractors: sub_memo list}
+
+  type config_memo = {msd: int; msl: int; glyphs: glyph_memo list}
+
   let next = function
     | I -> Some V
     | V -> Some X
@@ -11,15 +18,6 @@ module Glyph = struct
     | C -> Some D
     | D -> Some M
     | M -> None
-
-  let all =
-    let rec build_list glyphs glyph =
-      let glyphs = glyph :: glyphs in
-      match next glyph with
-      | None -> glyphs
-      | Some glyph -> build_list glyphs glyph
-    in
-    build_list [] I |> List.rev
 
   let value = function
     | I -> 1
@@ -30,16 +28,7 @@ module Glyph = struct
     | D -> 500
     | M -> 1_000
 
-  let rec is_power_of m = function
-    | n when n = 1 -> true
-    | n when n mod m <> 0 -> false
-    | n -> is_power_of m (n / m)
-
-  let power_of n g = value g |> is_power_of n
-
-  let powers_of_ten = List.filter (power_of 10)
-
-  let of_char = function
+  let from_char = function
     | 'I' -> Some I
     | 'V' -> Some V
     | 'X' -> Some X
@@ -58,22 +47,21 @@ module Glyph = struct
     | D -> 'D'
     | M -> 'M'
 
-  let list s = String.(trim s |> to_list) |> List.map of_char |> List.all_some
+  let all =
+    let rec build_list_from ?(acc = []) glyph =
+      let acc = glyph :: acc in
+      match next glyph with
+      | None -> acc
+      | Some glyph -> build_list_from glyph ~acc
+    in
+    build_list_from I |> List.rev
 
-  let string l = List.map to_char l |> String.of_list
+  let list_from ~string:s =
+    String.(trim s |> to_list) |> List.map from_char |> List.all_some
 
   let equal = Equal.physical
 
   let descending = List.rev all
-
-  let highest_denominator n =
-    descending |> List.find (fun g -> n mod value g = 0)
-
-  let denomination n = value (highest_denominator n)
-
-  let closest_higher num = all |> List.find_opt (fun g -> value g / num = 1)
-
-  let exact_match num = all |> List.find_opt (fun g -> value g = num)
 
   let closest_lower num = descending |> List.find (fun g -> num / value g > 0)
 
@@ -85,17 +73,6 @@ module Glyph = struct
     |> function
     | None -> true
     | Some _ -> false
-
-  let flat_fill num =
-    let g = highest_denominator num in
-    repeat g (num / value g)
-
-  let remaining_ones n =
-    if n < 10 then None
-    else
-      match (n mod 10, n mod 5) with
-      | 5, 0 | 0, 0 -> None
-      | ones -> Some ones
 
   let valid_subtractors ~msd high_val =
     let valid acc g =
@@ -111,67 +88,74 @@ module Glyph = struct
     in
     List.fold_left valid [] descending
 
-  let subtractor high_val num msl msd =
-    let dist = high_val - num in
-    let suitable last next =
+  let subtractor ~config ~(high : glyph_memo) ~target =
+    let dist = high.value - target in
+    let suitable (last : (t list * int) option) (g : sub_memo) =
       match last with
       | Some s -> Some s
       | None -> (
-          let v = value next in
-          match high_val - (v * msl) <= num with
+          let v = g.value in
+          match high.value - (v * config.msl) <= target with
           | false -> None
           | true -> (
-            match dist mod v = 0 with
-            | true -> (
-                let reps = dist / v in
-                match reps = 1 with
-                | true -> Some ([next], 0)
-                | false -> (
-                  match repeatable next with
-                  | false -> None
-                  | true -> Some (repeat next reps, 0) ) )
-            | false -> (
-                let reps = (dist / v) + 1 in
-                let rem = (v * reps) - dist in
-                match reps = 1 with
-                | true -> Some ([next], rem)
-                | false -> (
-                  match repeatable next with
-                  | false -> None
-                  | true -> Some (repeat next reps, rem) ) ) ) )
+              let reps =
+                match dist mod v = 0 with
+                | true -> dist / v
+                | false -> (dist / v) + 1
+              in
+              let rem = (v * reps) - dist in
+              match reps = 1 with
+              | true -> Some ([g.t], rem)
+              | false -> (
+                match high.repeatable with
+                | false -> None
+                | true -> Some (repeat g.t reps, rem) ) ) )
     in
-    List.fold_left suitable None (valid_subtractors ~msd high_val)
+    List.fold_left suitable None high.subtractors
 
-  let rec encode_part ?e:(encoded : t list list = []) ?(msl = 1) ?(msd = 1) num
-      =
-    if num = 0 then List.concat encoded |> List.rev
+  let sub_memoize g = {t= g; value= value g}
+
+  let memoize ~msd g =
+    let value = value g in
+    let subtractors = List.map sub_memoize (valid_subtractors ~msd value) in
+    {t= g; value; repeatable= repeatable g; subtractors}
+
+  let rec encode_part ~config ?(acc = []) num =
+    if num = 0 then List.concat acc |> List.rev
     else
       let chunk, rem =
-        match encode_subtractive ~msl ~msd num with
+        match encode_subtractive ~config num with
         | Some result -> result
         | None -> encode_additive num
       in
-      encode_part ~e:(chunk :: encoded) ~msl ~msd rem
+      encode_part ~config ~acc:(chunk :: acc) rem
 
-  and encode_subtractive ~msl ~msd num =
-    let () = print_endline @@ string_of_int num in
-    all
-    |> List.find_opt (fun g -> value g >= num)
+  and encode_subtractive ~config target =
+    config.glyphs
+    |> List.find_opt (fun (g : glyph_memo) -> g.value >= target)
     |> function
     | None -> None
-    | Some g -> (
-        let high_val = value g in
-        let dist = high_val - num in
-        if dist = 0 then Some ([g], 0)
+    | Some high -> (
+        if high.value - target = 0 then Some ([high.t], 0)
         else
-          match subtractor high_val num msl msd with
+          match subtractor ~high ~target ~config with
           | None -> None
-          | Some (sub, rem) -> Some (g :: sub, rem) )
+          | Some (sub, rem) -> Some (high.t :: sub, rem) )
 
   and encode_additive num =
     let g = closest_lower num in
     ([g], num - value g)
+
+  let start_encode ~msd ~msl arabic =
+    let glyphs = List.map (memoize ~msd) all in
+    let config = {msd; msl; glyphs} in
+    encode_part ~config arabic
 end
+
+let encode ?(msd = 1) ?(msl = 1) arabic =
+  Glyph.start_encode ~msd ~msl arabic
+  |> List.map Glyph.to_char
+  |> String.of_list
 
 module Part = struct
   let value (glyph, repetition) = Glyph.value glyph * repetition
@@ -200,9 +184,6 @@ module Part = struct
 end
 
 let decode string =
-  match Glyph.list string with
+  match Glyph.list_from ~string with
   | None -> 0
   | Some glyphs -> Part.(list glyphs |> sum)
-
-let encode ?(msd = 1) ?(msl = 1) arabic =
-  Glyph.encode_part arabic ~msd ~msl |> List.map Glyph.to_char |> String.of_list
