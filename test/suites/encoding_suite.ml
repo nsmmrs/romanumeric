@@ -2,14 +2,18 @@
 
 open Roman_numeral
 
-let can_encode (arabic, roman) ~f:encode =
-  let int = string_of_int arabic in
-  let assertion = int ^ " -> " ^ roman in
-  ( assertion
+let assert_line (arabic, roman) = string_of_int arabic ^ " -> " ^ roman
+
+let can_encode category tests ~f =
+  ( category
   , `Quick
   , fun () ->
-      let actual = encode arabic in
-      check string assertion roman actual )
+      let expected = List.map assert_line tests |> String.concat "\n" in
+      let actual =
+        List.map (fun (n, _) -> assert_line (n, f n)) tests
+        |> String.concat "\n"
+      in
+      check string "same output" expected actual )
 
 let conv, c1, c2, c3, c4 =
   let parse_line (cs, c1s, c2s, c3s, c4s) line =
@@ -30,20 +34,11 @@ let conv, c1, c2, c3, c4 =
   |> fold_left parse_line ([], [], [], [], [])
   |> rev_lists
 
-let conventional_suite = List.map (can_encode ~f:encode) conv
-
-let compression_level_1 = List.map (can_encode ~f:(encode ~msd:2)) c1
-
-let compression_level_2 = List.map (can_encode ~f:(encode ~msd:3)) c2
-
-let compression_level_3 = List.map (can_encode ~f:(encode ~msd:4)) c3
-
-let compression_level_4 = List.map (can_encode ~f:(encode ~msd:5)) c4
-
 let () =
-  Alcotest.run "Encoding"
-    [ ("conventional", conventional_suite)
-    ; ("compressed (lvl 1)", compression_level_1)
-    ; ("compressed (lvl 2)", compression_level_2)
-    ; ("compressed (lvl 3)", compression_level_3)
-    ; ("compressed (lvl 4)", compression_level_4) ]
+  Alcotest.run "Roman_numeral"
+    [ ( "encoding"
+      , [ can_encode "conventional" conv ~f:encode
+        ; can_encode "compressed (lvl 1)" c1 ~f:(encode ~msd:2)
+        ; can_encode "compressed (lvl 2)" c2 ~f:(encode ~msd:3)
+        ; can_encode "compressed (lvl 3)" c3 ~f:(encode ~msd:4)
+        ; can_encode "compressed (lvl 4)" c4 ~f:(encode ~msd:5) ] ) ]
