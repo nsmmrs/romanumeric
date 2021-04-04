@@ -1,3 +1,3 @@
 let greet name = "Hello " ^ name ^ "!"
 
-let%test "can greet Ash" = greet "Ash" = "Hello Ash!"
+let%test "can greet Ash" = String.equal (greet "Ash") "Hello Ash!"

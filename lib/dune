@@ -4,7 +4,10 @@
  (libraries containers)
  (inline_tests)
  (preprocess
-  (pps ppx_inline_test)))
+  (pps ppx_inline_test))
+ (flags
+  (:standard -open ContainersLabels))
+  )
 
 (rule
  (action

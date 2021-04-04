@@ -1,5 +1,3 @@
-open ContainersLabels
-
 type glyph = {char: char; value: int; repeatable: bool}
 
 type memo = {glyph: glyph; subtractors: glyph list}
