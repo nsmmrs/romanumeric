@@ -1,7 +1,5 @@
 (** Encoding test suite for the Roman_numeral module. *)
 
-open Roman_numeral
-
 let assert_line (arabic, roman) = string_of_int arabic ^ " -> " ^ roman
 
 let can_encode category tests ~f =
@@ -35,10 +33,11 @@ let conv, c1, c2, c3, c4 =
   |> rev_lists
 
 let () =
+  let open Roman.Encoder in
   Alcotest.run "Roman_numeral"
     [ ( "encoding"
-      , [ can_encode "conventional" conv ~f:encode
-        ; can_encode "compressed (lvl 1)" c1 ~f:(encode ~msd:2)
-        ; can_encode "compressed (lvl 2)" c2 ~f:(encode ~msd:3)
-        ; can_encode "compressed (lvl 3)" c3 ~f:(encode ~msd:4)
-        ; can_encode "compressed (lvl 4)" c4 ~f:(encode ~msd:5) ] ) ]
+      , [ can_encode "conventional" conv ~f:conventional
+        ; can_encode "compressed (lvl 1)" c1 ~f:(compressed 1)
+        ; can_encode "compressed (lvl 2)" c2 ~f:(compressed 2)
+        ; can_encode "compressed (lvl 3)" c3 ~f:(compressed 3)
+        ; can_encode "compressed (lvl 4)" c4 ~f:(compressed 4) ] ) ]
