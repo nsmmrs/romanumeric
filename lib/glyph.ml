@@ -1,8 +1,6 @@
-type glyph = {char: char; value: int; repeatable: bool}
+type t = {char: char; value: int}
 
-type memo = {glyph: glyph; subtractors: glyph list}
-
-type config = {glyphs: glyph list; memos: memo list; msl: int; msd: int}
+type group = {glyph: t; length: int}
 
 let compare a b = Int.compare a.value b.value
 
@@ -10,103 +8,88 @@ let sort_asc = List.sort ~cmp:compare
 
 let sort_desc = List.sort ~cmp:(Fun.flip compare)
 
-let repeat x n = List.init (Int.abs n) ~f:(fun _ -> x)
-
-let subtraction ~glyph ~subtractors ~target ~msl =
-  let dist = glyph.value - target in
-  let suitable last g =
-    match last with
-    | Some result -> Some result
-    | None -> (
-        let v = g.value in
-        match glyph.value - (v * msl) <= target with
-        | false -> None
-        | true -> (
-            let reps =
-              match dist mod v = 0 with
-              | true -> dist / v
-              | false -> (dist / v) + 1
-            in
-            let rem = (v * reps) - dist in
-            match reps = 1 with
-            | true -> Some ([g.char], rem)
-            | false -> (
-              match g.repeatable with
-              | false -> None
-              | true -> Some (repeat g.char reps, rem) ) ) )
-  in
-  List.fold_left ~f:suitable subtractors ~init:None
-
-let rec encode ~config ?(acc = []) num =
-  if num = 0 then List.concat acc |> List.rev |> String.of_list
-  else
-    let chunk, rem =
-      match encode_subtractive ~config num with
-      | Some result -> result
-      | None -> encode_additive num config.glyphs
-    in
-    encode ~config ~acc:(chunk :: acc) rem
-
-and encode_subtractive ~config target =
-  config.memos
-  |> List.find_opt ~f:(fun m -> m.glyph.value >= target)
-  |> function
-  | None -> None
-  | Some {glyph; subtractors} -> (
-      if glyph.value - target = 0 then Some ([glyph.char], 0)
-      else
-        match subtraction ~glyph ~subtractors ~target ~msl:config.msl with
-        | None -> None
-        | Some (chars, rem) -> Some (glyph.char :: chars, rem) )
-
-and encode_additive num glyphs =
-  let closest_lower =
-    glyphs |> sort_desc |> List.find ~f:(fun g -> num / g.value > 0)
-  in
-  ([closest_lower.char], num - closest_lower.value)
-
-let repeatable value chars_values =
-  chars_values
-  |> List.find_opt ~f:(fun (_, other) -> value * 2 = other)
+let repeatable ~glyphs glyph =
+  glyphs
+  |> List.find_opt ~f:(fun other -> glyph.value * 2 = other.value)
   |> Option.is_none
 
-let subtractors glyph glyphs msd =
-  let valid subs other =
-    if List.length subs = msd then subs
-    else
-      match other.value >= glyph.value with
-      | true -> subs
-      | false -> (
-        match other.value * 2 = glyph.value with
-        | true -> subs
-        | false -> other :: subs )
+let singular glyph = {glyph; length= 1}
+
+let make_group ~glyphs glyph length =
+  if length = 1 || repeatable ~glyphs glyph then Some {glyph; length} else None
+
+let valid_subtractor_for glyph other =
+  other.value < glyph.value && other.value * 2 <> glyph.value
+
+let nearest_gte ~glyphs target =
+  glyphs |> sort_asc |> List.find_opt ~f:(fun g -> g.value >= target)
+
+let nearest_lower ~glyphs target =
+  glyphs |> sort_desc |> List.find_opt ~f:(fun g -> target / g.value > 0)
+
+let subtractors ~glyphs ~msd:n glyph =
+  glyphs |> sort_desc |> Utils.filter_take n ~f:(valid_subtractor_for glyph)
+
+let subtraction ~glyphs ~msl ~msd glyph target =
+  let dist = glyph.value - target in
+  let suitable sub =
+    let sv = sub.value in
+    if glyph.value - (sv * msl) <= target then
+      let len =
+        match dist mod sv = 0 with
+        | true -> dist / sv
+        | false -> (dist / sv) + 1
+      in
+      let rem = (sv * len) - dist in
+      make_group ~glyphs sub len |> Option.map (fun group -> (group, rem))
+    else None
   in
-  List.fold_left ~f:valid (sort_desc glyphs) ~init:[]
+  List.find_map ~f:suitable (subtractors ~glyphs ~msd glyph)
 
-let make_glyph (char, value) ~chars_values =
-  {char; value; repeatable= repeatable value chars_values}
+let chars_of_group {glyph= {char; _}; length} =
+  List.init length ~f:(fun _ -> char)
 
-let make_glyphs chars_values =
-  let chars_values =
-    List.sort chars_values ~cmp:(fun (_, a) (_, b) -> Int.compare a b)
-  in
-  chars_values |> List.map ~f:(make_glyph ~chars_values)
+let encode_subtractive ~glyphs ~msd ~msl target =
+  nearest_gte ~glyphs target
+  |> function
+  | Some g ->
+      let base = singular g in
+      if g.value = target then ([base], 0)
+      else
+        subtraction ~glyphs ~msd ~msl g target
+        |> Option.map (fun (sub, rem) -> ([base; sub], rem))
+  | None -> None
 
-let make_memos glyphs ~msd =
-  List.map glyphs ~f:(fun glyph ->
-      {glyph; subtractors= subtractors glyph glyphs msd} )
+let encode_additive ~glyphs target =
+  nearest_lower ~glyphs target
+  |> Option.map (fun g -> (singular g, target - g.value))
+
+let rec encode ~glyphs ~msd ~msl ?(groups = []) target =
+  if target = 0 then
+    List.(groups |> rev |> map ~f:chars_of_group |> concat) |> String.of_list
+  else
+    let groups, remainder =
+      match nearest_gte ~glyphs target with
+      | Some g -> (
+          let base = singular g in
+          if g.value = target then (base :: groups, 0)
+          else
+            match subtraction ~glyphs ~msd ~msl g target with
+            | Some (sub, rem) -> (base :: sub :: groups, rem)
+            | None -> encode_additive ~glyphs target )
+      | None -> failwith "lol"
+    in
+    encode ~glyphs ~msd ~msl ~groups remainder
+
+let make_glyph (char, value) = {char; value}
+
+let make_glyphs chars_values = chars_values |> List.map ~f:make_glyph
 
 let make_encoder chars_values msd msl =
-  let glyphs = chars_values |> make_glyphs in
-  let memos = make_memos glyphs ~msd in
-  let config = {glyphs; memos; msd; msl} in
-  encode ~config
+  encode ~glyphs:(make_glyphs chars_values) ~msd ~msl
 
 let plus_or_minus (glyph, reps) ~given:(next_glyph, _) =
   let v = glyph.value * reps in
-  print_endline (string_of_int v) ;
-  print_endline (string_of_int glyph.value) ;
-  print_endline (string_of_int next_glyph.value) ;
   if glyph.value < next_glyph.value then -v else v
 
 let rec sum ?(acc = 0) parts =

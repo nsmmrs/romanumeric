@@ -1,14 +1,12 @@
 (** Decoding test suite for the Roman_numeral module. *)
 
-let decode = Glyph.make_decoder Roman.chars_values
-
 let can_decode (numeral, integer) =
   let description = "can decode \"" ^ numeral ^ "\"" in
   let assertion = numeral ^ " = " ^ string_of_int integer in
   ( description
   , `Quick
   , fun () ->
-      let actual = decode numeral in
+      let actual = Roman.decode numeral in
       check int assertion integer actual )
 
 let suite =

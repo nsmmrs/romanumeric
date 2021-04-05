@@ -7,7 +7,9 @@ let chars_values =
   ; ('D', 500)
   ; ('M', 1_000) ]
 
-module Encoder = struct
+let decode = Glyph.make_decoder chars_values
+
+module Encode = struct
   let conventional = Glyph.make_encoder chars_values 1 1
 
   let compressed lvl =
