@@ -1,21 +1,17 @@
 (library
- (name romanum)
- (public_name romanum)
+ (name romanumeric)
+ (public_name romanumeric)
  (libraries containers)
- (inline_tests)
- (preprocess
-  (pps ppx_inline_test))
  (flags
-  (:standard -open ContainersLabels))
-  )
+  (:standard -open ContainersLabels)))
 
 (rule
  (action
-  (write-file open_lib "#require \"romanum\";;\nopen Romanum;;\n")))
+  (write-file open_lib "#require \"romanumeric\";;\nopen Romanumeric;;\n")))
 
 (mdx
  (files *.mli)
  (preludes open_lib)
- (packages romanum))
+ (packages romanumeric))
 
 (include_subdirs unqualified)

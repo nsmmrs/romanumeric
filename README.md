@@ -1,19 +1,3 @@
-# romanum
+# romanumeric
 
-A library and CLI for decoding and encoding Roman numerals
-
-## Installation
-
-### Using Opam
-
-<!-- $MDX skip -->
-```bash
-make install
-```
-
-## Usage
-
-```bash
-$ romanum hello Caesar
-Hello Caesar!
-```
+A library for decoding and encoding Roman numerals

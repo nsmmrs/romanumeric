@@ -5,4 +5,4 @@
 
 (mdx
  (files README.md)
- (packages romanum))
+ (packages romanumeric))

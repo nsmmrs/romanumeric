@@ -12,6 +12,8 @@ module Encoder = struct
 
   let compressed lvl =
     match lvl with
-    | 1 | 2 | 3 | 4 -> Glyph.make_encoder chars_values (lvl + 1) 1
-    | _ -> failwith "unsupported option"
+    | 1 | 2 | 3 | 4 ->
+        Glyph.make_encoder chars_values (lvl + 1) 1
+    | _ ->
+        failwith "unsupported option"
 end

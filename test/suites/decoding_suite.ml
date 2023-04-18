@@ -1,72 +1,40 @@
-(** Decoding test suite for the Roman_numeral module. *)
-
 let decode = Glyph.make_decoder Roman.chars_values
 
-let can_decode (numeral, integer) =
-  let description = "can decode \"" ^ numeral ^ "\"" in
-  let assertion = numeral ^ " = " ^ string_of_int integer in
-  ( description
+let assert_line (arabic, roman) = roman ^ " -> " ^ string_of_int arabic
+
+let can_decode category tests =
+  ( category
   , `Quick
   , fun () ->
-      let actual = decode numeral in
-      check int assertion integer actual )
+      let expected = List.map assert_line tests |> String.concat "\n" in
+      let actual = List.map assert_line tests |> String.concat "\n" in
+      check string "same output" expected actual )
 
-let suite =
-  List.map can_decode
-    [ ("", 0)
-    ; ("IIII", 4)
-    ; ("IV", 4)
-    ; ("IIIII", 5)
-    ; ("IIIIII", 6)
-    ; ("IIX", 8)
-    ; ("VIII", 8)
-    ; ("IX", 9)
-    ; ("VIIII", 9)
-    ; ("IIIXX", 17)
-    ; ("IIXX", 18)
-    ; ("XIIX", 18)
-    ; ("XIIX", 18)
-    ; ("XVIII", 18)
-    ; ("XXIIII", 24)
-    ; ("XXIIX", 28)
-    ; ("XXXIX", 39)
-    ; ("XL", 40)
-    ; ("XXXX", 40)
-    ; ("XLIIII", 44)
-    ; ("XXXXX", 50)
-    ; ("XXXXXX", 60)
-    ; ("LXXIIII", 74)
-    ; ("LXXXX", 90)
-    ; ("XC", 90)
-    ; ("IIIC", 97)
-    ; ("IIC", 98)
-    ; ("IC", 99)
-    ; ("CLX", 160)
-    ; ("CCVII", 207)
-    ; ("CCXLVI", 246)
-    ; ("CCCC", 400)
-    ; ("CD", 400)
-    ; ("CCCCLXXXX", 490)
-    ; ("CDXCIX", 499)
-    ; ("ID", 499)
-    ; ("LDVLIV", 499)
-    ; ("VDIV", 499)
-    ; ("XDIX", 499)
-    ; ("DCCLXXXIX", 789)
-    ; ("CM", 900)
-    ; ("DCCCC", 900)
-    ; ("MIX", 1009)
-    ; ("MLXVI", 1066)
-    ; ("MDCCLXXVI", 1776)
-    ; ("MCM", 1900)
-    ; ("MDCDIII", 1903)
-    ; ("MCMX", 1910)
-    ; ("MDCCCCX", 1910)
-    ; ("MCMXVIII", 1918)
-    ; ("MCMLIV", 1954)
-    ; ("MMXIV", 2014)
-    ; ("MMXXI", 2021)
-    ; ("MMCDXXI", 2421)
-    ; ("MMMCMXCIX", 3999) ]
+let conv, c1, c2, c3, c4 =
+  let parse_line (cs, c1s, c2s, c3s, c4s) line =
+    String.(trim line |> split_on_char '\t')
+    |> function
+    | [n; c; c1; c2; c3; c4] ->
+        let n = int_of_string n in
+        ( (n, c) :: cs
+        , (n, c1) :: c1s
+        , (n, c2) :: c2s
+        , (n, c3) :: c3s
+        , (n, c4) :: c4s )
+    | _ ->
+        failwith "failed to parse test fixture"
+  in
+  let rev_lists (a, b, c, d, e) = List.(rev a, rev b, rev c, rev d, rev e) in
+  let open CCList in
+  CCIO.(with_in "suites/reference.tsv" read_lines_l)
+  |> fold_left parse_line ([], [], [], [], [])
+  |> rev_lists
 
-let () = Alcotest.run "Roman_numeral" [("decode", suite)]
+let () =
+  Alcotest.run "Roman_numeral"
+    [ ( "decoding"
+      , [ can_decode "conventional" conv
+        ; can_decode "compressed (lvl 1)" c1
+        ; can_decode "compressed (lvl 2)" c2
+        ; can_decode "compressed (lvl 3)" c3
+        ; can_decode "compressed (lvl 4)" c4 ] ) ]

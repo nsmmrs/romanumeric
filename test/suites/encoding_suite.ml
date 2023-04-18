@@ -24,11 +24,12 @@ let conv, c1, c2, c3, c4 =
         , (n, c2) :: c2s
         , (n, c3) :: c3s
         , (n, c4) :: c4s )
-    | _ -> failwith "failed to parse test fixture"
+    | _ ->
+        failwith "failed to parse test fixture"
   in
   let rev_lists (a, b, c, d, e) = List.(rev a, rev b, rev c, rev d, rev e) in
   let open CCList in
-  CCIO.(with_in "suites/encoding_suite.tsv" read_lines_l)
+  CCIO.(with_in "suites/reference.tsv" read_lines_l)
   |> fold_left parse_line ([], [], [], [], [])
   |> rev_lists
 

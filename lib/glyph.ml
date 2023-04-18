@@ -16,24 +16,31 @@ let subtraction ~glyph ~subtractors ~target ~msl =
   let dist = glyph.value - target in
   let suitable last g =
     match last with
-    | Some result -> Some result
+    | Some result ->
+        Some result
     | None -> (
         let v = g.value in
         match glyph.value - (v * msl) <= target with
-        | false -> None
+        | false ->
+            None
         | true -> (
             let reps =
               match dist mod v = 0 with
-              | true -> dist / v
-              | false -> (dist / v) + 1
+              | true ->
+                  dist / v
+              | false ->
+                  (dist / v) + 1
             in
             let rem = (v * reps) - dist in
             match reps = 1 with
-            | true -> Some ([g.char], rem)
+            | true ->
+                Some ([g.char], rem)
             | false -> (
               match g.repeatable with
-              | false -> None
-              | true -> Some (repeat g.char reps, rem) ) ) )
+              | false ->
+                  None
+              | true ->
+                  Some (repeat g.char reps, rem) ) ) )
   in
   List.fold_left ~f:suitable subtractors ~init:None
 
@@ -42,8 +49,10 @@ let rec encode ~config ?(acc = []) num =
   else
     let chunk, rem =
       match encode_subtractive ~config num with
-      | Some result -> result
-      | None -> encode_additive num config.glyphs
+      | Some result ->
+          result
+      | None ->
+          encode_additive num config.glyphs
     in
     encode ~config ~acc:(chunk :: acc) rem
 
@@ -51,13 +60,16 @@ and encode_subtractive ~config target =
   config.memos
   |> List.find_opt ~f:(fun m -> m.glyph.value >= target)
   |> function
-  | None -> None
+  | None ->
+      None
   | Some {glyph; subtractors} -> (
       if glyph.value - target = 0 then Some ([glyph.char], 0)
       else
         match subtraction ~glyph ~subtractors ~target ~msl:config.msl with
-        | None -> None
-        | Some (chars, rem) -> Some (glyph.char :: chars, rem) )
+        | None ->
+            None
+        | Some (chars, rem) ->
+            Some (glyph.char :: chars, rem) )
 
 and encode_additive num glyphs =
   let closest_lower =
@@ -75,11 +87,14 @@ let subtractors glyph glyphs msd =
     if List.length subs = msd then subs
     else
       match other.value >= glyph.value with
-      | true -> subs
+      | true ->
+          subs
       | false -> (
         match other.value * 2 = glyph.value with
-        | true -> subs
-        | false -> other :: subs )
+        | true ->
+            subs
+        | false ->
+            other :: subs )
   in
   List.fold_left ~f:valid (sort_desc glyphs) ~init:[]
 
@@ -111,13 +126,15 @@ let plus_or_minus (glyph, reps) ~given:(next_glyph, _) =
 
 let rec sum ?(acc = 0) parts =
   match parts with
-  | [] -> acc
+  | [] ->
+      acc
   | ((glyph, reps) as first) :: remaining -> (
     match remaining with
     | next :: _ ->
         let addend = plus_or_minus first ~given:next in
         sum remaining ~acc:(acc + addend)
-    | empty -> sum empty ~acc:(acc + (glyph.value * reps)) )
+    | empty ->
+        sum empty ~acc:(acc + (glyph.value * reps)) )
 
 let decode ~glyphs string =
   let glyphs_by_char =
@@ -126,22 +143,23 @@ let decode ~glyphs string =
   let glyph_of_char char = Hashtbl.get glyphs_by_char char in
   let acc parts group =
     match parts with
-    | None -> None
+    | None ->
+        None
     | Some parts -> (
       match group with
-      | [] -> Some parts
+      | [] ->
+          Some parts
       | char :: _ -> (
         match glyph_of_char char with
-        | Some g -> Some ((g, List.length group) :: parts)
-        | None -> None ) )
+        | Some g ->
+            Some ((g, List.length group) :: parts)
+        | None ->
+            None ) )
   in
-  string
-  |> String.to_list
+  string |> String.to_list
   |> List.group_succ ~eq:Char.equal
   |> List.fold_left ~f:acc ~init:(Some [])
-  |> function
-  | Some parts -> sum (List.rev parts)
-  | None -> 0
+  |> function Some parts -> sum (List.rev parts) | None -> 0
 
 let make_decoder chars_values =
   let glyphs = chars_values |> make_glyphs in

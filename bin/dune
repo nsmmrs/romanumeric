@@ -1,6 +1,0 @@
-(executable
- (name main)
- (public_name romanum)
- (libraries romanum cmdliner fmt fmt.tty logs.fmt logs.cli))
-
-(include_subdirs unqualified)
