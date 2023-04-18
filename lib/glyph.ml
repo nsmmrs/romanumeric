@@ -1,8 +1,8 @@
-type glyph = {char: char; value: int; repeatable: bool}
+type code = {symbol: char; value: int; repeatable: bool}
 
-type memo = {glyph: glyph; subtractors: glyph list}
+type memo = {code: code; subtractors: code list}
 
-type config = {glyphs: glyph list; memos: memo list; msl: int; msd: int}
+type system = {table: code list; memos: memo list; msl: int; msd: int}
 
 let compare a b = Int.compare a.value b.value
 
@@ -12,15 +12,15 @@ let sort_desc = List.sort ~cmp:(Fun.flip compare)
 
 let repeat x n = List.init (Int.abs n) ~f:(fun _ -> x)
 
-let subtraction ~glyph ~subtractors ~target ~msl =
-  let dist = glyph.value - target in
+let subtraction ~code ~subtractors ~target ~msl =
+  let dist = code.value - target in
   let suitable last g =
     match last with
     | Some result ->
         Some result
     | None -> (
         let v = g.value in
-        match glyph.value - (v * msl) <= target with
+        match code.value - (v * msl) <= target with
         | false ->
             None
         | true -> (
@@ -34,13 +34,13 @@ let subtraction ~glyph ~subtractors ~target ~msl =
             let rem = (v * reps) - dist in
             match reps = 1 with
             | true ->
-                Some ([g.char], rem)
+                Some ([g.symbol], rem)
             | false -> (
               match g.repeatable with
               | false ->
                   None
               | true ->
-                  Some (repeat g.char reps, rem) ) ) )
+                  Some (repeat g.symbol reps, rem) ) ) )
   in
   List.fold_left ~f:suitable subtractors ~init:None
 
@@ -52,95 +52,95 @@ let rec encode ~config ?(acc = []) num =
       | Some result ->
           result
       | None ->
-          encode_additive num config.glyphs
+          encode_additive num config.table
     in
     encode ~config ~acc:(chunk :: acc) rem
 
 and encode_subtractive ~config target =
   config.memos
-  |> List.find_opt ~f:(fun m -> m.glyph.value >= target)
+  |> List.find_opt ~f:(fun m -> m.code.value >= target)
   |> function
   | None ->
       None
-  | Some {glyph; subtractors} -> (
-      if glyph.value - target = 0 then Some ([glyph.char], 0)
+  | Some {code; subtractors} -> (
+      if code.value - target = 0 then Some ([code.symbol], 0)
       else
-        match subtraction ~glyph ~subtractors ~target ~msl:config.msl with
+        match subtraction ~code ~subtractors ~target ~msl:config.msl with
         | None ->
             None
-        | Some (chars, rem) ->
-            Some (glyph.char :: chars, rem) )
+        | Some (symbols, rem) ->
+            Some (code.symbol :: symbols, rem) )
 
-and encode_additive num glyphs =
+and encode_additive num table =
   let closest_lower =
-    glyphs |> sort_desc |> List.find ~f:(fun g -> num / g.value > 0)
+    table |> sort_desc |> List.find ~f:(fun g -> num / g.value > 0)
   in
-  ([closest_lower.char], num - closest_lower.value)
+  ([closest_lower.symbol], num - closest_lower.value)
 
-let repeatable value chars_values =
-  chars_values
+let repeatable value symbols_values =
+  symbols_values
   |> List.find_opt ~f:(fun (_, other) -> value * 2 = other)
   |> Option.is_none
 
-let subtractors glyph glyphs msd =
+let subtractors code table msd =
   let valid subs other =
     if List.length subs = msd then subs
     else
-      match other.value >= glyph.value with
+      match other.value >= code.value with
       | true ->
           subs
       | false -> (
-        match other.value * 2 = glyph.value with
+        match other.value * 2 = code.value with
         | true ->
             subs
         | false ->
             other :: subs )
   in
-  List.fold_left ~f:valid (sort_desc glyphs) ~init:[]
+  List.fold_left ~f:valid (sort_desc table) ~init:[]
 
-let make_glyph (char, value) ~chars_values =
-  {char; value; repeatable= repeatable value chars_values}
+let make_code (symbol, value) ~symbols_values =
+  {symbol; value; repeatable= repeatable value symbols_values}
 
-let make_glyphs chars_values =
-  let chars_values =
-    List.sort chars_values ~cmp:(fun (_, a) (_, b) -> Int.compare a b)
+let make_table symbols_values =
+  let symbols_values =
+    List.sort symbols_values ~cmp:(fun (_, a) (_, b) -> Int.compare a b)
   in
-  chars_values |> List.map ~f:(make_glyph ~chars_values)
+  symbols_values |> List.map ~f:(make_code ~symbols_values)
 
-let make_memos glyphs ~msd =
-  List.map glyphs ~f:(fun glyph ->
-      {glyph; subtractors= subtractors glyph glyphs msd} )
+let make_memos table ~msd =
+  List.map table ~f:(fun code ->
+      {code; subtractors= subtractors code table msd} )
 
-let make_encoder chars_values msd msl =
-  let glyphs = chars_values |> make_glyphs in
-  let memos = make_memos glyphs ~msd in
-  let config = {glyphs; memos; msd; msl} in
+let make_encoder symbols_values msd msl =
+  let table = symbols_values |> make_table in
+  let memos = make_memos table ~msd in
+  let config = {table; memos; msd; msl} in
   encode ~config
 
-let plus_or_minus (glyph, reps) ~given:(next_glyph, _) =
-  let v = glyph.value * reps in
+let plus_or_minus (code, reps) ~given:(next_code, _) =
+  let v = code.value * reps in
   print_endline (string_of_int v) ;
-  print_endline (string_of_int glyph.value) ;
-  print_endline (string_of_int next_glyph.value) ;
-  if glyph.value < next_glyph.value then -v else v
+  print_endline (string_of_int code.value) ;
+  print_endline (string_of_int next_code.value) ;
+  if code.value < next_code.value then -v else v
 
 let rec sum ?(acc = 0) parts =
   match parts with
   | [] ->
       acc
-  | ((glyph, reps) as first) :: remaining -> (
+  | ((code, reps) as first) :: remaining -> (
     match remaining with
     | next :: _ ->
         let addend = plus_or_minus first ~given:next in
         sum remaining ~acc:(acc + addend)
     | empty ->
-        sum empty ~acc:(acc + (glyph.value * reps)) )
+        sum empty ~acc:(acc + (code.value * reps)) )
 
-let decode ~glyphs string =
-  let glyphs_by_char =
-    List.map glyphs ~f:(fun ({char; _} as g) -> (char, g)) |> Hashtbl.of_list
+let decode ~table string =
+  let codes_by_symbol =
+    List.map table ~f:(fun ({symbol; _} as g) -> (symbol, g)) |> Hashtbl.of_list
   in
-  let glyph_of_char char = Hashtbl.get glyphs_by_char char in
+  let code_of_symbol symbol = Hashtbl.get codes_by_symbol symbol in
   let acc parts group =
     match parts with
     | None ->
@@ -149,8 +149,8 @@ let decode ~glyphs string =
       match group with
       | [] ->
           Some parts
-      | char :: _ -> (
-        match glyph_of_char char with
+      | symbol :: _ -> (
+        match code_of_symbol symbol with
         | Some g ->
             Some ((g, List.length group) :: parts)
         | None ->
@@ -161,6 +161,6 @@ let decode ~glyphs string =
   |> List.fold_left ~f:acc ~init:(Some [])
   |> function Some parts -> sum (List.rev parts) | None -> 0
 
-let make_decoder chars_values =
-  let glyphs = chars_values |> make_glyphs in
-  decode ~glyphs
+let make_decoder symbols_values =
+  let table = symbols_values |> make_table in
+  decode ~table
