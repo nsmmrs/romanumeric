@@ -1,8 +1,12 @@
 type code = {symbol: char; value: int; repeatable: bool}
 
-type memo = {code: code; subtractors: code list}
+type repetition = { code: code; length: int }
 
-type system = {table: code list; memos: memo list; msl: int; msd: int}
+type table = code list
+
+type memo = {code: code; subtractors: table}
+
+type system = {table: table; memos: memo list; msl: int; msd: int}
 
 let compare a b = Int.compare a.value b.value
 
@@ -10,16 +14,18 @@ let sort_asc = List.sort ~cmp:compare
 
 let sort_desc = List.sort ~cmp:(Fun.flip compare)
 
-let repeat x n = List.init (Int.abs n) ~f:(fun _ -> x)
+let repeat code length = { code; length }
+  
+let chars_of_repetition (repetition:repetition) : char list = List.init (Int.abs repetition.length) ~f:(fun _ -> repetition.code.symbol)
 
-let subtraction ~code ~subtractors ~target ~msl =
+let subtraction ~(code:code) ~(subtractors:table) ~(target:int) ~(msl:int) : (repetition list * int) option =
   let dist = code.value - target in
-  let suitable last g =
+  let suitable last c =
     match last with
     | Some result ->
         Some result
     | None -> (
-        let v = g.value in
+        let v = c.value in
         match code.value - (v * msl) <= target with
         | false ->
             None
@@ -34,48 +40,48 @@ let subtraction ~code ~subtractors ~target ~msl =
             let rem = (v * reps) - dist in
             match reps = 1 with
             | true ->
-                Some ([g.symbol], rem)
+                Some ([repeat c 1], rem)
             | false -> (
-              match g.repeatable with
+              match c.repeatable with
               | false ->
                   None
               | true ->
-                  Some (repeat g.symbol reps, rem) ) ) )
+                  Some ([repeat c reps], rem) ) ) )
   in
   List.fold_left ~f:suitable subtractors ~init:None
 
-let rec encode ~config ?(acc = []) num =
-  if num = 0 then List.concat acc |> List.rev |> String.of_list
+let rec encode ~system ?(acc = []) num =
+  if num = 0 then acc |> List.rev |> List.map ~f:chars_of_repetition |> List.concat |> String.of_list
   else
     let chunk, rem =
-      match encode_subtractive ~config num with
+      match encode_subtractive ~system num with
       | Some result ->
           result
       | None ->
-          encode_additive num config.table
+          encode_additive num system.table
     in
-    encode ~config ~acc:(chunk :: acc) rem
+    encode ~system ~acc:(List.concat [chunk; acc]) rem
 
-and encode_subtractive ~config target =
-  config.memos
-  |> List.find_opt ~f:(fun m -> m.code.value >= target)
+and encode_subtractive ~(system:system) (target:int) : (repetition list * int) option =
+  system.memos
+  |> List.find_opt ~f:(fun (m:memo) -> m.code.value >= target)
   |> function
   | None ->
       None
   | Some {code; subtractors} -> (
-      if code.value - target = 0 then Some ([code.symbol], 0)
+      if code.value - target = 0 then Some ([repeat code 1], 0)
       else
-        match subtraction ~code ~subtractors ~target ~msl:config.msl with
+        match subtraction ~code ~subtractors ~target ~msl:system.msl with
         | None ->
             None
-        | Some (symbols, rem) ->
-            Some (code.symbol :: symbols, rem) )
+        | Some (repetitions, rem) ->
+            Some (repeat code 1 :: repetitions, rem) )
 
 and encode_additive num table =
   let closest_lower =
-    table |> sort_desc |> List.find ~f:(fun g -> num / g.value > 0)
+    table |> sort_desc |> List.find ~f:(fun c -> num / c.value > 0)
   in
-  ([closest_lower.symbol], num - closest_lower.value)
+  ([repeat closest_lower 1], num - closest_lower.value)
 
 let repeatable value symbols_values =
   symbols_values
@@ -114,8 +120,8 @@ let make_memos table ~msd =
 let make_encoder symbols_values msd msl =
   let table = symbols_values |> make_table in
   let memos = make_memos table ~msd in
-  let config = {table; memos; msd; msl} in
-  encode ~config
+  let system = {table; memos; msd; msl} in
+  encode ~system
 
 let plus_or_minus (code, reps) ~given:(next_code, _) =
   let v = code.value * reps in
@@ -138,7 +144,7 @@ let rec sum ?(acc = 0) parts =
 
 let decode ~table string =
   let codes_by_symbol =
-    List.map table ~f:(fun ({symbol; _} as g) -> (symbol, g)) |> Hashtbl.of_list
+    List.map table ~f:(fun ({symbol; _} as c) -> (symbol, c)) |> Hashtbl.of_list
   in
   let code_of_symbol symbol = Hashtbl.get codes_by_symbol symbol in
   let acc parts group =
@@ -151,8 +157,8 @@ let decode ~table string =
           Some parts
       | symbol :: _ -> (
         match code_of_symbol symbol with
-        | Some g ->
-            Some ((g, List.length group) :: parts)
+        | Some c ->
+            Some ((c, List.length group) :: parts)
         | None ->
             None ) )
   in
