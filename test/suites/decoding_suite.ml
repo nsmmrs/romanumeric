@@ -31,7 +31,7 @@ let conv, c1, c2, c3, c4 =
   |> rev_lists
 
 let () =
-  Alcotest.run "Roman_numeral"
+  Alcotest.run "Romanumeric"
     [ ( "decoding"
       , [ can_decode "conventional" conv
         ; can_decode "compressed (lvl 1)" c1
