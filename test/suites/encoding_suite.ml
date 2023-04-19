@@ -32,11 +32,10 @@ let conv, c1, c2, c3, c4 =
   |> rev_lists
 
 let () =
-  let open Roman.Encoder in
   Alcotest.run "Romanumeric"
     [ ( "encoding"
-      , [ can_encode "conventional" conv ~f:conventional
-        ; can_encode "compressed (lvl 1)" c1 ~f:(compressed 1)
-        ; can_encode "compressed (lvl 2)" c2 ~f:(compressed 2)
-        ; can_encode "compressed (lvl 3)" c3 ~f:(compressed 3)
-        ; can_encode "compressed (lvl 4)" c4 ~f:(compressed 4) ] ) ]
+      , [ can_encode "conventional" conv ~f:Roman.conventional
+        ; can_encode "compressed (lvl 1)" c1 ~f:(Roman.compressed 1)
+        ; can_encode "compressed (lvl 2)" c2 ~f:(Roman.compressed 2)
+        ; can_encode "compressed (lvl 3)" c3 ~f:(Roman.compressed 3)
+        ; can_encode "compressed (lvl 4)" c4 ~f:(Roman.compressed 4) ] ) ]

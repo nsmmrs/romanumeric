@@ -1,5 +1,3 @@
-let decode = Glyph.make_decoder Roman.chars_values
-
 let assert_line (arabic, roman) = roman ^ " -> " ^ string_of_int arabic
 
 let can_decode category tests =
@@ -7,7 +5,10 @@ let can_decode category tests =
   , `Quick
   , fun () ->
       let expected = List.map assert_line tests |> String.concat "\n" in
-      let actual = List.map assert_line tests |> String.concat "\n" in
+      let actual =
+        List.map (fun (_, r) -> assert_line (Roman.decode r, r)) tests
+        |> String.concat "\n"
+      in
       check string "same output" expected actual )
 
 let conv, c1, c2, c3, c4 =
