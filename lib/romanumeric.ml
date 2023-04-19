@@ -1,24 +1,59 @@
 type code = {symbol: char; value: int; repeatable: bool}
 
+let repeatable value symbols_values =
+  symbols_values
+  |> List.find_opt ~f:(fun (_, other) -> value * 2 = other)
+  |> Option.is_none
+let make_code (symbol, value) ~symbols_values =
+  {symbol; value; repeatable= repeatable value symbols_values}
+
 type table = code list
 
+let make_table symbols_values =
+  let symbols_values =
+    List.sort symbols_values ~cmp:(fun (_, a) (_, b) -> Int.compare a b)
+  in
+  symbols_values |> List.map ~f:(make_code ~symbols_values)
+
+let compare a b = Int.compare a.value b.value
+let sort_asc : table -> table = List.sort ~cmp:compare
+let sort_desc : table -> table = List.sort ~cmp:(Fun.flip compare)
+
 type repetition = {code: code; length: int}
+
+let repeat code length = {code; length}
 
 type numeral = repetition list
 
 type memo = {code: code; subtractors: table}
 
+let subtractors code table msd =
+  let valid subs other =
+    if List.length subs = msd then subs
+    else
+      match other.value >= code.value with
+      | true ->
+          subs
+      | false -> (
+        match other.value * 2 = code.value with
+        | true ->
+            subs
+        | false ->
+            other :: subs )
+  in
+  List.fold_left ~f:valid (sort_desc table) ~init:[]
+
+let make_memos table ~msd =
+  List.map table ~f:(fun code ->
+      {code; subtractors= subtractors code table msd} )
+
 type system = {table: table; memos: memo list; msl: int; msd: int}
 
+let make_system table msd msl =
+  let memos = make_memos table ~msd in
+  {table; memos; msd; msl}
+
 type accumulator = {numeral: numeral; remainder: int}
-
-let compare a b = Int.compare a.value b.value
-
-let sort_asc : table -> table = List.sort ~cmp:compare
-
-let sort_desc : table -> table = List.sort ~cmp:(Fun.flip compare)
-
-let repeat code length = {code; length}
 
 let chars_of_repetition {code; length} =
   List.init (Int.abs length) ~f:(fun _ -> code.symbol)
@@ -94,47 +129,12 @@ and encode_subtractive (system : system) (acc : accumulator) :
             Some {numeral= repeat code 1 :: r.numeral; remainder= r.remainder} )
 
 and encode_additive system acc =
-  (*num table =*)
   let closest_lower =
     system.table |> sort_desc
     |> List.find ~f:(fun c -> acc.remainder / c.value > 0)
   in
   { numeral= [repeat closest_lower 1]
   ; remainder= acc.remainder - closest_lower.value }
-
-let repeatable value symbols_values =
-  symbols_values
-  |> List.find_opt ~f:(fun (_, other) -> value * 2 = other)
-  |> Option.is_none
-
-let subtractors code table msd =
-  let valid subs other =
-    if List.length subs = msd then subs
-    else
-      match other.value >= code.value with
-      | true ->
-          subs
-      | false -> (
-        match other.value * 2 = code.value with
-        | true ->
-            subs
-        | false ->
-            other :: subs )
-  in
-  List.fold_left ~f:valid (sort_desc table) ~init:[]
-
-let make_code (symbol, value) ~symbols_values =
-  {symbol; value; repeatable= repeatable value symbols_values}
-
-let make_table symbols_values =
-  let symbols_values =
-    List.sort symbols_values ~cmp:(fun (_, a) (_, b) -> Int.compare a b)
-  in
-  symbols_values |> List.map ~f:(make_code ~symbols_values)
-
-let make_memos table ~msd =
-  List.map table ~f:(fun code ->
-      {code; subtractors= subtractors code table msd} )
 
 let plus_or_minus (code, reps) ~given:(next_code, _) =
   let v = code.value * reps in
@@ -182,12 +182,10 @@ let decode ~table string =
 
 let make_decoder table = decode ~table
 
-let encode ~system (num : int) = _encode system {numeral= []; remainder= num}
+let encode ~system (arabic : int) = _encode system {numeral= []; remainder= arabic}
 
 let make_encoder table msd msl =
-  let memos = make_memos table ~msd in
-  let system = {table; memos; msd; msl} in
-  encode ~system
+   encode ~system:(make_system table msd msl)
 
 module Roman = struct
   let table : table =
