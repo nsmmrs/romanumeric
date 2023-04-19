@@ -1,24 +1,29 @@
 type code = {symbol: char; value: int; repeatable: bool}
+type table = code list
 
 type repetition = { code: code; length: int }
-
-type table = code list
+type numeral = repetition list
 
 type memo = {code: code; subtractors: table}
 
 type system = {table: table; memos: memo list; msl: int; msd: int}
 
+type accumulator = { numeral: numeral ; remainder: int }
+
 let compare a b = Int.compare a.value b.value
 
-let sort_asc = List.sort ~cmp:compare
+let sort_asc : table -> table = List.sort ~cmp:compare
 
-let sort_desc = List.sort ~cmp:(Fun.flip compare)
+let sort_desc : table -> table = List.sort ~cmp:(Fun.flip compare)
 
 let repeat code length = { code; length }
   
-let chars_of_repetition (repetition:repetition) : char list = List.init (Int.abs repetition.length) ~f:(fun _ -> repetition.code.symbol)
+let chars_of_repetition {code; length} = List.init (Int.abs length) ~f:(fun _ -> code.symbol)
 
-let subtraction ~(code:code) ~(subtractors:table) ~(target:int) ~(msl:int) : (repetition list * int) option =
+let string_of_numeral (numeral:numeral) : string = 
+  numeral |> List.rev |> List.map ~f:chars_of_repetition |> List.concat |> String.of_list
+
+let subtraction ~(code:code) ~(subtractors:table) ~(target:int) ~(msl:int) : accumulator option =
   let dist = code.value - target in
   let suitable last c =
     match last with
@@ -40,48 +45,48 @@ let subtraction ~(code:code) ~(subtractors:table) ~(target:int) ~(msl:int) : (re
             let rem = (v * reps) - dist in
             match reps = 1 with
             | true ->
-                Some ([repeat c 1], rem)
+                Some { numeral=[repeat c 1]; remainder=rem }
             | false -> (
               match c.repeatable with
               | false ->
                   None
               | true ->
-                  Some ([repeat c reps], rem) ) ) )
+                  Some { numeral=[repeat c reps]; remainder=rem } ) ) )
   in
   List.fold_left ~f:suitable subtractors ~init:None
 
-let rec encode ~system ?(acc = []) num =
-  if num = 0 then acc |> List.rev |> List.map ~f:chars_of_repetition |> List.concat |> String.of_list
+let rec _encode (system:system) (acc:accumulator) : string =
+  if acc.remainder = 0 then string_of_numeral acc.numeral
   else
-    let chunk, rem =
-      match encode_subtractive ~system num with
+    let r =
+      match encode_subtractive system acc with
       | Some result ->
           result
       | None ->
-          encode_additive num system.table
+          encode_additive system acc
     in
-    encode ~system ~acc:(List.concat [chunk; acc]) rem
+    _encode system { numeral=(List.concat [r.numeral; acc.numeral]); remainder=r.remainder }
 
-and encode_subtractive ~(system:system) (target:int) : (repetition list * int) option =
+and encode_subtractive (system:system) (acc:accumulator) : accumulator option =
   system.memos
-  |> List.find_opt ~f:(fun (m:memo) -> m.code.value >= target)
+  |> List.find_opt ~f:(fun (m:memo) -> m.code.value >= acc.remainder)
   |> function
   | None ->
       None
   | Some {code; subtractors} -> (
-      if code.value - target = 0 then Some ([repeat code 1], 0)
+      if code.value - acc.remainder = 0 then Some { numeral=[repeat code 1]; remainder=0 }
       else
-        match subtraction ~code ~subtractors ~target ~msl:system.msl with
+        match subtraction ~code ~subtractors ~target:acc.remainder ~msl:system.msl with
         | None ->
             None
-        | Some (repetitions, rem) ->
-            Some (repeat code 1 :: repetitions, rem) )
+        | Some r ->
+            Some { numeral=(repeat code 1 :: r.numeral); remainder=r.remainder } )
 
-and encode_additive num table =
+and encode_additive system acc = (*num table =*)
   let closest_lower =
-    table |> sort_desc |> List.find ~f:(fun c -> num / c.value > 0)
+    system.table |> sort_desc |> List.find ~f:(fun c -> acc.remainder / c.value > 0)
   in
-  ([repeat closest_lower 1], num - closest_lower.value)
+  { numeral=[repeat closest_lower 1]; remainder= acc.remainder - closest_lower.value }
 
 let repeatable value symbols_values =
   symbols_values
@@ -117,11 +122,7 @@ let make_memos table ~msd =
   List.map table ~f:(fun code ->
       {code; subtractors= subtractors code table msd} )
 
-let make_encoder symbols_values msd msl =
-  let table = symbols_values |> make_table in
-  let memos = make_memos table ~msd in
-  let system = {table; memos; msd; msl} in
-  encode ~system
+
 
 let plus_or_minus (code, reps) ~given:(next_code, _) =
   let v = code.value * reps in
@@ -170,3 +171,11 @@ let decode ~table string =
 let make_decoder symbols_values =
   let table = symbols_values |> make_table in
   decode ~table
+
+let encode ~system (num:int) = _encode system { numeral=[]; remainder=num }
+
+let make_encoder symbols_values msd msl =
+  let table = symbols_values |> make_table in
+  let memos = make_memos table ~msd in
+  let system = {table; memos; msd; msl} in
+  encode ~system
