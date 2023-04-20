@@ -52,8 +52,6 @@ module Table : sig
 
   val make : (char * int) list -> t
 
-  val sort : t -> t
-
   val exists : code -> table -> bool
 
   val memoize : t -> memo
@@ -64,7 +62,7 @@ end = struct
 
   type memo = table_memo
 
-  let sort = List.sort ~cmp:Code.compare
+  let sort : t -> t = List.sort ~cmp:Code.compare
 
   let make symbols_values = symbols_values |> List.map ~f:Code.make |> sort
 
@@ -113,14 +111,15 @@ module System : sig
   type t = system
 
   val make : table -> int -> int -> t
-
-  val repeatable : table_memo -> code -> bool
-
-  val subtractors : table_memo -> int -> code -> table
 end = struct
   type t = system
 
-  let repeatable table code = Table.exists code table.asc
+  let repeatable : table_memo -> code -> bool =
+   fun table ->
+    let repeatable_codes =
+      List.filter table.asc ~f:(Code.repeatable table.asc)
+    in
+    fun code -> Table.exists code repeatable_codes
 
   let subtractors_for code table msd =
     let valid subs other =
@@ -142,7 +141,8 @@ end = struct
     List.fold_left table.asc ~init:CodeMap.empty ~f:(fun map code ->
         CodeMap.add code (subtractors_for code table msd) map )
 
-  let subtractors table msd =
+  let subtractors : table_memo -> int -> code -> table =
+   fun table msd ->
     let memoized = memoize_subtractors table msd in
     fun code -> CodeMap.get_or code memoized ~default:[]
 

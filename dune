@@ -1,7 +1,6 @@
 (env
  (dev
-  (flags
-   (:standard -w +A-48-42-44-70 -warn-error +A-32))))
+  (flags (:standard))))
 
 (mdx
  (files README.md)

@@ -1,4 +1,4 @@
-(lang dune 2.8)
+(lang dune 3.7)
 (name romanumeric)
 (source (github nsmmrs/romanumeric))
 (license MIT)
@@ -13,8 +13,9 @@
  (name romanumeric)
  (synopsis "A library for decoding and encoding Roman numerals")
  (depends
-  (ocaml (>= 4.08.0))
+  (ocaml (>= 4.06.0))
   (dune (>= 2.0))
+  (containers (>= 3.0))
   (alcotest :with-test)
   (mdx :with-test)
   (odoc :with-doc)
