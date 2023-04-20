@@ -165,7 +165,8 @@ module Numeral : sig
   type t = numeral
 
   val to_int : t -> int
-  (* val of_int : system -> int -> t option *)
+
+  val of_int : system -> int -> t option
 
   val to_string : t -> string
 
@@ -203,92 +204,95 @@ end = struct
     string |> String.to_list
     |> List.group_succ ~eq:Char.equal
     |> of_char_groups table
+
+  let subtraction : system -> code -> accumulator -> accumulator option =
+   fun system code acc ->
+    let dist = code.value - acc.remainder in
+    let suitable last c =
+      match last with
+      | Some result ->
+          Some result
+      | None -> (
+          let v = c.value in
+          match code.value - (v * system.msl) <= acc.remainder with
+          | false ->
+              None
+          | true -> (
+              let reps =
+                match dist mod v = 0 with
+                | true ->
+                    dist / v
+                | false ->
+                    (dist / v) + 1
+              in
+              let rem = (v * reps) - dist in
+              match reps = 1 with
+              | true ->
+                  Some {numeral= [repeat 1 c]; remainder= rem}
+              | false -> (
+                match system.repeatable c with
+                | false ->
+                    None
+                | true ->
+                    Some {numeral= [repeat reps c]; remainder= rem} ) ) )
+    in
+    List.fold_left ~f:suitable (system.subtractors code) ~init:None
+
+  let encode_additive : system -> accumulator -> accumulator =
+   fun system acc ->
+    let closest_lower =
+      system.table.desc |> List.find ~f:(fun c -> acc.remainder / c.value > 0)
+    in
+    { numeral= [repeat 1 closest_lower]
+    ; remainder= acc.remainder - closest_lower.value }
+
+  let encode_subtractive : system -> accumulator -> accumulator option =
+   fun system acc ->
+    system.table.asc
+    |> List.find_opt ~f:(fun code -> code.value >= acc.remainder)
+    |> function
+    | None ->
+        None
+    | Some code -> (
+        if code.value - acc.remainder = 0 then
+          Some {numeral= [repeat 1 code]; remainder= 0}
+        else
+          match subtraction system code acc with
+          | None ->
+              None
+          | Some r ->
+              Some {numeral= repeat 1 code :: r.numeral; remainder= r.remainder}
+        )
+
+  let rec _encode : system -> accumulator -> t option =
+   fun system acc ->
+    if acc.remainder = 0 then Some acc.numeral
+    else
+      let r =
+        match encode_subtractive system acc with
+        | Some result ->
+            result
+        | None ->
+            encode_additive system acc
+      in
+      _encode system
+        {numeral= List.concat [r.numeral; acc.numeral]; remainder= r.remainder}
+
+  let of_int system n = _encode system {numeral= []; remainder= n}
 end
 
-let subtraction : system -> code -> accumulator -> accumulator option =
- fun system code acc ->
-  let dist = code.value - acc.remainder in
-  let suitable last c =
-    match last with
-    | Some result ->
-        Some result
-    | None -> (
-        let v = c.value in
-        match code.value - (v * system.msl) <= acc.remainder with
-        | false ->
-            None
-        | true -> (
-            let reps =
-              match dist mod v = 0 with
-              | true ->
-                  dist / v
-              | false ->
-                  (dist / v) + 1
-            in
-            let rem = (v * reps) - dist in
-            match reps = 1 with
-            | true ->
-                Some {numeral= [repeat 1 c]; remainder= rem}
-            | false -> (
-              match system.repeatable c with
-              | false ->
-                  None
-              | true ->
-                  Some {numeral= [repeat reps c]; remainder= rem} ) ) )
-  in
-  List.fold_left ~f:suitable (system.subtractors code) ~init:None
-
-let encode_additive : system -> accumulator -> accumulator =
- fun system acc ->
-  let closest_lower =
-    system.table.desc |> List.find ~f:(fun c -> acc.remainder / c.value > 0)
-  in
-  { numeral= [repeat 1 closest_lower]
-  ; remainder= acc.remainder - closest_lower.value }
-
-let encode_subtractive : system -> accumulator -> accumulator option =
- fun system acc ->
-  system.table.asc
-  |> List.find_opt ~f:(fun code -> code.value >= acc.remainder)
-  |> function
-  | None ->
-      None
-  | Some code -> (
-      if code.value - acc.remainder = 0 then
-        Some {numeral= [repeat 1 code]; remainder= 0}
-      else
-        match subtraction system code acc with
-        | None ->
-            None
-        | Some r ->
-            Some {numeral= repeat 1 code :: r.numeral; remainder= r.remainder} )
-
-let rec _encode : system -> accumulator -> string =
- fun system acc ->
-  if acc.remainder = 0 then Numeral.to_string acc.numeral
-  else
-    let r =
-      match encode_subtractive system acc with
-      | Some result ->
-          result
-      | None ->
-          encode_additive system acc
-    in
-    _encode system
-      {numeral= List.concat [r.numeral; acc.numeral]; remainder= r.remainder}
-
-let decode : table:table -> string -> int =
- fun ~table string ->
+let decode ~table string =
   string |> Numeral.of_string table
   |> function Some n -> Numeral.to_int n | None -> failwith "Invalid numeral"
 
-let make_decoder : table -> string -> int = fun table -> decode ~table
+let encode ~system arabic =
+  arabic |> Numeral.of_int system
+  |> function
+  | Some n -> Numeral.to_string n | None -> failwith "Incomplete system"
 
-let encode : system:system -> int -> string =
- fun ~system arabic -> _encode system {numeral= []; remainder= arabic}
+let make_decoder table = decode ~table
 
-let make_encoder : table -> int -> int -> int -> string =
- fun table msd msl -> encode ~system:(System.make table msd msl)
+let make_encoder table msd msl = encode ~system:(System.make table msd msl)
 
 module Roman = struct
   let table : table =
