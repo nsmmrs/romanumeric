@@ -10,9 +10,7 @@ install: installable ## Install the packages on the system
 
 .PHONY: dev
 dev: ## Install development dependencies
-	opam pin add -y ocaml-lsp-server https://github.com/ocaml/ocaml-lsp.git
-	opam install -y dune-release merlin ocamlformat utop ocaml-lsp-server
-	opam install -y --deps-only --with-test --with-doc .
+	opam install -y --working-dir --deps-only --with-test --with-doc .
 
 .PHONY: build
 build: ## Build the project, including non installable libraries and executables
