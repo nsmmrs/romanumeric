@@ -6,10 +6,6 @@ type table = code list
 
 type table_memo = {asc: table; desc: table}
 
-type numeral = code_repetition list
-
-type accumulator = {numeral: numeral; remainder: int}
-
 type system =
   { table: table_memo
   ; repeatable: code -> bool
@@ -41,16 +37,13 @@ end = struct
   let repeat length code = {code; length}
 
   let repeatable table code =
-    table
-    |> List.find_opt ~f:(fun other -> code.value * 2 = other.value)
-    |> Option.is_none
+    let double_of code other = code.value * 2 = other.value in
+    not (List.exists table ~f:(double_of code))
 end
 
 module CodeMap = Map.Make (Code)
 
 type code_table_map = table CodeMap.t
-
-let repeat = Code.repeat
 
 module Table : sig
   type t = table
@@ -64,6 +57,8 @@ module Table : sig
   val exists : code -> table -> bool
 
   val memoize : t -> memo
+
+  val code_of_char : table -> char -> code option
 end = struct
   type t = table
 
@@ -77,6 +72,41 @@ end = struct
     List.exists table ~f:(fun other -> other.value = code.value)
 
   let memoize table = {asc= table; desc= List.rev table}
+
+  let code_of_char table char =
+    List.find_opt table ~f:(fun code -> Char.equal code.symbol char)
+end
+
+module Repetition : sig
+  type t = code_repetition
+
+  val value : t -> int
+
+  val of_chars : table -> char list -> t option
+
+  val to_chars : t -> char list
+
+  val to_addend : next:t -> t -> int
+end = struct
+  type t = code_repetition
+
+  let of_chars table chars =
+    match chars with
+    | [] ->
+        None
+    | char :: _ ->
+        Option.map
+          (Code.repeat (List.length chars))
+          (Table.code_of_char table char)
+
+  let to_chars {code; length} =
+    List.init (Int.abs length) ~f:(fun _ -> code.symbol)
+
+  let value {code; length} = code.value * length
+
+  let to_addend ~next current =
+    let v = value current in
+    if current.code.value < next.code.value then -v else v
 end
 
 module System : sig
@@ -125,16 +155,58 @@ end = struct
     ; msl }
 end
 
-let chars_of_repetition {code; length} =
-  List.init (Int.abs length) ~f:(fun _ -> code.symbol)
+let repeat = Code.repeat
 
-let string_of_numeral (numeral : numeral) : string =
-  numeral |> List.rev
-  |> List.map ~f:chars_of_repetition
-  |> List.concat |> String.of_list
+type numeral = code_repetition list
 
-let subtraction : system -> code -> accumulator -> accumulator option = 
-fun system code acc ->
+type accumulator = {numeral: numeral; remainder: int}
+
+module Numeral : sig
+  type t = numeral
+
+  val to_int : t -> int
+  (* val of_int : system -> int -> t option *)
+
+  val to_string : t -> string
+
+  val of_string : table -> string -> t option
+end = struct
+  type t = numeral
+
+  let to_string numeral =
+    numeral
+    |> List.rev_map ~f:Repetition.to_chars
+    |> List.concat |> String.of_list
+
+  let to_int numeral =
+    let rec sum ?(acc = 0) (remainder : t) =
+      match remainder with
+      | [] ->
+          acc
+      | current :: (next :: _ as remaining) ->
+          let addend = Repetition.to_addend current ~next in
+          sum remaining ~acc:(acc + addend)
+      | current :: empty ->
+          sum empty ~acc:(acc + Repetition.value current)
+    in
+    sum numeral
+
+  let append_group table numeral group =
+    Option.bind numeral (fun n ->
+        Option.bind (Repetition.of_chars table group) (fun r -> Some (r :: n)) )
+
+  let of_char_groups table groups =
+    List.fold_left groups ~init:(Some []) ~f:(append_group table)
+    |> Option.map List.rev
+
+  let of_string table string =
+    string |> String.to_list
+    |> List.group_succ ~eq:Char.equal
+    |> of_char_groups table
+end
+
+let subtraction : system -> code -> accumulator -> accumulator option =
+ fun system code acc ->
   let dist = code.value - acc.remainder in
   let suitable last c =
     match last with
@@ -166,7 +238,8 @@ fun system code acc ->
   in
   List.fold_left ~f:suitable (system.subtractors code) ~init:None
 
-let encode_additive : system -> accumulator -> accumulator = fun system acc ->
+let encode_additive : system -> accumulator -> accumulator =
+ fun system acc ->
   let closest_lower =
     system.table.desc |> List.find ~f:(fun c -> acc.remainder / c.value > 0)
   in
@@ -192,7 +265,7 @@ let encode_subtractive : system -> accumulator -> accumulator option =
 
 let rec _encode : system -> accumulator -> string =
  fun system acc ->
-  if acc.remainder = 0 then string_of_numeral acc.numeral
+  if acc.remainder = 0 then Numeral.to_string acc.numeral
   else
     let r =
       match encode_subtractive system acc with
@@ -204,50 +277,10 @@ let rec _encode : system -> accumulator -> string =
     _encode system
       {numeral= List.concat [r.numeral; acc.numeral]; remainder= r.remainder}
 
-let plus_or_minus : code * int -> given:code * 'a -> int = fun (code, reps) ~given:(next_code, _) ->
-  let v = code.value * reps in
-  if code.value < next_code.value then -v else v
-
-let rec sum : ?acc:int -> (code * int) list -> int =
-  fun ?(acc = 0) parts ->
-  match parts with
-  | [] ->
-      acc
-  | ((code, reps) as first) :: remaining -> (
-    match remaining with
-    | next :: _ ->
-        let addend = plus_or_minus first ~given:next in
-        sum remaining ~acc:(acc + addend)
-    | empty ->
-        sum empty ~acc:(acc + (code.value * reps)) )
-
 let decode : table:table -> string -> int =
  fun ~table string ->
-  let table = Table.memoize table in
-  let codes_by_symbol =
-    List.map table.asc ~f:(fun ({symbol; _} as c) -> (symbol, c))
-    |> Hashtbl.of_list
-  in
-  let code_of_symbol symbol = Hashtbl.get codes_by_symbol symbol in
-  let acc parts group =
-    match parts with
-    | None ->
-        None
-    | Some parts -> (
-      match group with
-      | [] ->
-          Some parts
-      | symbol :: _ -> (
-        match code_of_symbol symbol with
-        | Some c ->
-            Some ((c, List.length group) :: parts)
-        | None ->
-            None ) )
-  in
-  string |> String.to_list
-  |> List.group_succ ~eq:Char.equal
-  |> List.fold_left ~f:acc ~init:(Some [])
-  |> function Some parts -> sum (List.rev parts) | None -> 0
+  string |> Numeral.of_string table
+  |> function Some n -> Numeral.to_int n | None -> failwith "Invalid numeral"
 
 let make_decoder : table -> string -> int = fun table -> decode ~table
 
