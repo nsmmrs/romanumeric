@@ -4,4 +4,5 @@
 
 (mdx
  (files README.md)
- (packages romanumeric))
+ (deps
+  (package romanumeric)))

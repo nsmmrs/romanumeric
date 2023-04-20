@@ -5,7 +5,7 @@
 (authors "Noah Summers")
 (maintainers "Noah Summers")
 
-(using mdx 0.1)
+(using mdx 0.2)
 
 (generate_opam_files true)
 
