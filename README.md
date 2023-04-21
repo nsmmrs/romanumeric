@@ -32,7 +32,7 @@ end
 
 <!-- $MDX env=usage -->
 ```ocaml
-module Roman = Romanumeric.Roman;;
+module Roman = Romanumeric.Roman
 ```
 
 ### Decoding
@@ -43,7 +43,7 @@ module Roman = Romanumeric.Roman;;
 - : int = 1912
 ```
 
-`romanumeric` follows a single rule of interpretation: if the code of a repetition has a lower value than the code of the next, it is treated as negative (e.g. "XIIV" is interpreted as "10 + (-2) + 5").
+`romanumeric` follows a single rule of interpretation: if the code of a repetition has a lower value than the code of the next repetition, it is treated as negative (e.g. "XIIV" is interpreted as "10 + (-2) + 5").
 
 Because of this, there is no problem decoding "non-standard" numerals like the following examples from history:
 
