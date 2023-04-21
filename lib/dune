@@ -5,14 +5,8 @@
  (flags
   (:standard -open ContainersLabels)))
 
-(rule
- (action
-  (write-file open_lib "#require \"romanumeric\";;\nopen Romanumeric;;\n")))
-
 (mdx
  (files *.mli)
- (preludes open_lib)
- (deps
-  (package romanumeric)))
+ (libraries romanumeric))
 
 (include_subdirs unqualified)

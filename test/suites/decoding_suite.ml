@@ -6,7 +6,7 @@ let can_decode category tests =
   , fun () ->
       let expected = List.map assert_line tests |> String.concat "\n" in
       let actual =
-        List.map (fun (_, r) -> assert_line (Roman.decode r, r)) tests
+        List.map (fun (_, r) -> assert_line (Roman.to_int r, r)) tests
         |> String.concat "\n"
       in
       check string "same output" expected actual )

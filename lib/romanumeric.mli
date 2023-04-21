@@ -28,9 +28,7 @@ val make_decoder : table -> string -> int
 module Roman : sig
   val table : table
 
-  val decode : string -> int
+  val to_int : string -> int
 
-  val conventional : int -> string
-
-  val compressed : int -> int -> string
+  val of_int : ?c:int -> int -> string
 end

@@ -294,8 +294,9 @@ let make_decoder table = decode ~table
 
 let make_encoder table msd msl = encode ~system:(System.make table msd msl)
 
+(* $MDX part-begin=Roman *)
 module Roman = struct
-  let table : table =
+  let table =
     Table.make
       [ ('I', 1)
       ; ('V', 5)
@@ -305,14 +306,13 @@ module Roman = struct
       ; ('D', 500)
       ; ('M', 1_000) ]
 
-  let decode = make_decoder table
+  let to_int = make_decoder table
 
-  let conventional = make_encoder table 1 1
-
-  let compressed lvl =
-    match lvl with
-    | 1 | 2 | 3 | 4 ->
-        make_encoder table (lvl + 1) 1
+  let of_int ?c:(compression_level = 0) =
+    match compression_level with
+    | 0 | 1 | 2 | 3 | 4 ->
+        make_encoder table (compression_level + 1) 1
     | _ ->
         failwith "unsupported option"
 end
+(* $MDX part-end *)
