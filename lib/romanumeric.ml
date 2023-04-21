@@ -123,17 +123,12 @@ end = struct
 
   let subtractors_for code table msd =
     let valid subs other =
-      if List.length subs = msd then subs
-      else
-        match other.value >= code.value with
-        | true ->
-            subs
-        | false -> (
-          match other.value * 2 = code.value with
-          | true ->
-              subs
-          | false ->
-              other :: subs )
+      if
+        List.length subs = msd
+        || other.value >= code.value
+        || other.value * 2 = code.value
+      then subs
+      else other :: subs
     in
     List.fold_left ~f:valid table.desc ~init:[]
 
@@ -212,29 +207,15 @@ end = struct
       match last with
       | Some result ->
           Some result
-      | None -> (
+      | None ->
           let v = c.value in
-          match code.value - (v * system.msl) <= acc.remainder with
-          | false ->
-              None
-          | true -> (
-              let reps =
-                match dist mod v = 0 with
-                | true ->
-                    dist / v
-                | false ->
-                    (dist / v) + 1
-              in
-              let rem = (v * reps) - dist in
-              match reps = 1 with
-              | true ->
-                  Some {numeral= [repeat 1 c]; remainder= rem}
-              | false -> (
-                match system.repeatable c with
-                | false ->
-                    None
-                | true ->
-                    Some {numeral= [repeat reps c]; remainder= rem} ) ) )
+          if code.value - (v * system.msl) <= acc.remainder then
+            let reps = if dist mod v = 0 then dist / v else (dist / v) + 1 in
+            let remainder = (v * reps) - dist in
+            if reps = 1 || system.repeatable c then
+              Some {numeral= [repeat reps c]; remainder}
+            else None
+          else None
     in
     List.fold_left ~f:suitable (system.subtractors code) ~init:None
 
@@ -250,33 +231,24 @@ end = struct
    fun system acc ->
     system.table.asc
     |> List.find_opt ~f:(fun code -> code.value >= acc.remainder)
-    |> function
-    | None ->
-        None
-    | Some code -> (
-        if code.value - acc.remainder = 0 then
-          Some {numeral= [repeat 1 code]; remainder= 0}
-        else
-          match subtraction system code acc with
-          | None ->
-              None
-          | Some r ->
-              Some {numeral= repeat 1 code :: r.numeral; remainder= r.remainder}
-        )
+    |> Option.flat_map (fun code ->
+           if code.value - acc.remainder = 0 then
+             Some {numeral= [repeat 1 code]; remainder= 0}
+           else
+             subtraction system code acc
+             |> Option.flat_map (fun r ->
+                    Some {r with numeral= repeat 1 code :: r.numeral} ) )
 
-  let rec _encode : system -> accumulator -> t option =
-   fun system acc ->
+  let rec _encode system acc =
     if acc.remainder = 0 then Some acc.numeral
     else
-      let r =
-        match encode_subtractive system acc with
-        | Some result ->
-            result
-        | None ->
-            encode_additive system acc
+      let result =
+        Option.get_or
+          (encode_subtractive system acc)
+          ~default:(encode_additive system acc)
       in
-      _encode system
-        {numeral= List.concat [r.numeral; acc.numeral]; remainder= r.remainder}
+      let numeral = List.concat [result.numeral; acc.numeral] in
+      _encode system {result with numeral}
 
   let of_int system n = _encode system {numeral= []; remainder= n}
 end
