@@ -20,11 +20,7 @@ module Roman = struct
   let to_int = make_decoder table
 
   let of_int ?c:(compression_level = 0) =
-    match compression_level with
-    | 0 | 1 | 2 | 3 | 4 ->
-        make_encoder table (compression_level + 1) 1
-    | _ ->
-        failwith "unsupported option"
+    make_encoder table (compression_level + 1) 1
 end
 ```
 
@@ -32,7 +28,7 @@ end
 
 <!-- $MDX env=usage -->
 ```ocaml
-module Roman = Romanumeric.Roman
+open Romanumeric
 ```
 
 ### Decoding
@@ -40,7 +36,7 @@ module Roman = Romanumeric.Roman
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.to_int "MCMXII"
-- : int = 1912
+- : decoding_result = Ok 1912
 ```
 
 `romanumeric` follows a single rule of interpretation: if the code of a repetition has a lower value than the code of the next repetition, it is treated as negative (e.g. "XIIV" is interpreted as "10 + (-2) + 5").
@@ -49,22 +45,16 @@ Because of this, there is no problem decoding "non-standard" numerals like the f
 
 <!-- $MDX env=usage -->
 ```ocaml
-assert (Roman.to_int "IIIXX" = 17);;
-assert (Roman.to_int "IIXX" = 18);;
-```
+let decode n = Result.get_ok (Roman.to_int n);;
 
-<!-- $MDX env=usage -->
-```ocaml
-assert (Roman.to_int "IIIC" = 97);;
-assert (Roman.to_int "IIC" = 98);;
-assert (Roman.to_int "IC" = 99);;
-```
-
-<!-- $MDX env=usage -->
-```ocaml
-assert (Roman.to_int "IIX" = 8);;
-assert (Roman.to_int "XIIX" = 18);;
-assert (Roman.to_int "XXIIX" = 28);;
+assert (decode "IIIXX" = 17);;
+assert (decode "IIXX" = 18);;
+assert (decode "IIIC" = 97);;
+assert (decode "IIC" = 98);;
+assert (decode "IC" = 99);;
+assert (decode "IIX" = 8);;
+assert (decode "XIIX" = 18);;
+assert (decode "XXIIX" = 28);;
 ```
 
 Compare this to the output from Google Sheets:
@@ -85,7 +75,7 @@ A historical example of a truly non-standard numeral would be the use of "IIXX" 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.to_int "IIXX"
-- : int = 18
+- : decoding_result = Ok 18
 ```
 
 ### Encoding
@@ -93,7 +83,7 @@ A historical example of a truly non-standard numeral would be the use of "IIXX" 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int 1234
-- : string = "MCCXXXIV"
+- : encoding_result = Ok "MCCXXXIV"
 ```
 
 #### Compression
@@ -103,35 +93,35 @@ Like `ROMAN()`, compressed encoding is supported:
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int ~c:0 499
-- : string = "CDXCIX"
+- : encoding_result = Ok "CDXCIX"
 ```
 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int ~c:1 499
-- : string = "LDVLIV"
+- : encoding_result = Ok "LDVLIV"
 ```
 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int ~c:4 499
-- : string = "ID"
+- : encoding_result = Ok "ID"
 ```
 
-#### Limits
+#### Limitations
 
 Unlike `ROMAN()`, input is not restricted to the arbitrary 1-3999 range:
 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int 0
-- : string = ""
+- : encoding_result = Ok ""
 ```
 
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int 5348
-- : string = "MMMMMCCCXLVIII"
+- : encoding_result = Ok "MMMMMCCCXLVIII"
 ```
 
 Negative numbers are still not supported, however:
@@ -139,5 +129,5 @@ Negative numbers are still not supported, however:
 <!-- $MDX env=usage -->
 ```ocaml
 # Roman.of_int (-5)
-Exception: Not_found.
+- : encoding_result = Error "Negative numbers are not supported"
 ```

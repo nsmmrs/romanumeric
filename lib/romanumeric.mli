@@ -17,18 +17,22 @@ type system =
   ; msl: int
   ; msd: int }
 
-val encode : system:system -> int -> string
+type encoding_result = (string, string) result
 
-val make_encoder : table -> int -> int -> int -> string
+type decoding_result = (int, string) result
 
-val decode : table:table -> string -> int
+val encode : system:system -> int -> encoding_result
 
-val make_decoder : table -> string -> int
+val make_encoder : table -> int -> int -> int -> encoding_result
+
+val decode : table:table -> string -> decoding_result
+
+val make_decoder : table -> string -> decoding_result
 
 module Roman : sig
   val table : table
 
-  val to_int : string -> int
+  val to_int : string -> decoding_result
 
-  val of_int : ?c:int -> int -> string
+  val of_int : ?c:int -> int -> encoding_result
 end

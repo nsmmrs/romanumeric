@@ -13,6 +13,10 @@ type system =
   ; msl: int
   ; msd: int }
 
+type encoding_result = (string, string) result
+
+type decoding_result = (int, string) result
+
 module Code : sig
   type t = code
 
@@ -255,12 +259,16 @@ end
 
 let decode ~table string =
   string |> Numeral.of_string table
-  |> function Some n -> Numeral.to_int n | None -> failwith "Invalid numeral"
+  |> function
+  | Some n -> Ok (Numeral.to_int n) | None -> Error "Invalid numeral"
 
 let encode ~system arabic =
-  arabic |> Numeral.of_int system
-  |> function
-  | Some n -> Numeral.to_string n | None -> failwith "Incomplete system"
+  if arabic < 0 then Error "Negative numbers are not supported"
+  else if system.msd < 1 then Error "Invalid system"
+  else
+    arabic |> Numeral.of_int system
+    |> function
+    | Some n -> Ok (Numeral.to_string n) | None -> Error "Insufficient system"
 
 let make_decoder table = decode ~table
 
@@ -281,10 +289,6 @@ module Roman = struct
   let to_int = make_decoder table
 
   let of_int ?c:(compression_level = 0) =
-    match compression_level with
-    | 0 | 1 | 2 | 3 | 4 ->
-        make_encoder table (compression_level + 1) 1
-    | _ ->
-        failwith "unsupported option"
+    make_encoder table (compression_level + 1) 1
 end
 (* $MDX part-end *)

@@ -6,7 +6,7 @@ let can_encode category tests ~f =
   , fun () ->
       let expected = List.map assert_line tests |> String.concat "\n" in
       let actual =
-        List.map (fun (n, _) -> assert_line (n, f n)) tests
+        List.map (fun (n, _) -> assert_line (n, Result.get_ok (f n))) tests
         |> String.concat "\n"
       in
       check string "same output" expected actual )
