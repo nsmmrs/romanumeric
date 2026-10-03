@@ -1,7 +1,0 @@
-(env
- (dev
-  (flags (:standard))))
-
-(mdx
- (files README.md)
- (libraries romanumeric))
