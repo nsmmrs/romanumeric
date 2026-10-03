@@ -1,9 +1,0 @@
-(include_subdirs unqualified)
-
-(tests
- (names decoding_suite encoding_suite)
- (libraries alcotest romanumeric)
- (deps
-  (file suites/reference.tsv))
- (flags
-  (:standard -open Alcotest -open Romanumeric)))
