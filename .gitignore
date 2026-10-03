@@ -1,15 +1,5 @@
-# ocamlbuild working directory
-_build/
+# Node
+node_modules/
 
-# ocamlbuild targets
-*.byte
-*.native
-
-# Merlin configuring file for Vim and Emacs
-.merlin
-
-# Dune generated files
-*.install
-
-# Local OPAM switch
-_opam/
+# Build output
+dist/
